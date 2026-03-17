@@ -2,11 +2,13 @@
 import * as log from "@std/log";
 import { type Route, route } from "@std/http/unstable-route";
 import { STATUS_CODE } from "@std/http/status";
-import { type AppState, html, HttpError, json, text } from "./context.ts";
-import { FAVICON_SVG, renderLandingPage } from "./html.tsx";
-import { INSTALL_SCRIPT } from "./install.ts";
+import { type AppState, HttpError, json } from "./context.ts";
 import { handleDeploy } from "./deploy.ts";
-import { handleEnvDelete, handleEnvList, handleEnvSet } from "./env_handler.ts";
+import {
+  handleSecretDelete,
+  handleSecretList,
+  handleSecretSet,
+} from "./secret_handler.ts";
 import {
   handleAgentHealth,
   handleAgentPage,
@@ -74,21 +76,8 @@ export function createOrchestrator(opts: {
     scopeKey: opts.scopeKey,
   };
 
-  const serveFavicon = () =>
-    new Response(FAVICON_SVG, {
-      headers: {
-        "Content-Type": "image/svg+xml",
-        "Cache-Control": "public, max-age=86400",
-      },
-    });
-
   const routes: Route[] = [
     // --- Public routes ---
-    {
-      pattern: new URLPattern({ pathname: "/" }),
-      method: "GET",
-      handler: () => html(renderLandingPage()),
-    },
     {
       pattern: new URLPattern({ pathname: "/health" }),
       method: "GET",
@@ -103,21 +92,6 @@ export function createOrchestrator(opts: {
           headers: { "Content-Type": "text/plain; version=0.0.4" },
         });
       },
-    },
-    {
-      pattern: new URLPattern({ pathname: "/favicon.ico" }),
-      method: "GET",
-      handler: serveFavicon,
-    },
-    {
-      pattern: new URLPattern({ pathname: "/favicon.svg" }),
-      method: "GET",
-      handler: serveFavicon,
-    },
-    {
-      pattern: new URLPattern({ pathname: "/install" }),
-      method: "GET",
-      handler: () => text(INSTALL_SCRIPT),
     },
 
     // --- Agent page (trailing slash is canonical for relative URL resolution) ---
@@ -145,36 +119,36 @@ export function createOrchestrator(opts: {
         return handleDeploy(c, { slug, keyHash });
       },
     },
-    // --- Env management (like `vercel env`) ---
+    // --- Secret management (like `wrangler secret`) ---
     {
-      pattern: new URLPattern({ pathname: "/:slug/env" }),
+      pattern: new URLPattern({ pathname: "/:slug/secret" }),
       method: "GET",
       handler: async (req, match, info) => {
         const c = ctx(req, match, info, state);
         const slug = validateSlug(c.params);
         await requireOwner(req, { slug, store: state.store });
-        return handleEnvList(c, slug);
+        return handleSecretList(c, slug);
       },
     },
     {
-      pattern: new URLPattern({ pathname: "/:slug/env" }),
+      pattern: new URLPattern({ pathname: "/:slug/secret" }),
       method: "PUT",
       handler: async (req, match, info) => {
         const c = ctx(req, match, info, state);
         const slug = validateSlug(c.params);
         await requireOwner(req, { slug, store: state.store });
-        return handleEnvSet(c, slug);
+        return handleSecretSet(c, slug);
       },
     },
     {
-      pattern: new URLPattern({ pathname: "/:slug/env/:key" }),
+      pattern: new URLPattern({ pathname: "/:slug/secret/:key" }),
       method: "DELETE",
       handler: async (req, match, info) => {
         const c = ctx(req, match, info, state);
         const slug = validateSlug(c.params);
         await requireOwner(req, { slug, store: state.store });
         const key = c.params.key!;
-        return handleEnvDelete(c, { slug, key });
+        return handleSecretDelete(c, { slug, key });
       },
     },
     {

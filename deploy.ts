@@ -2,10 +2,9 @@
 import * as log from "@std/log";
 import { STATUS_CODE } from "@std/http/status";
 import { json, type RouteContext } from "./context.ts";
-import { loadPlatformConfig } from "./config.ts";
 import type { DeployBody } from "@aai/sdk/internal-types";
 import { HttpError } from "./context.ts";
-import { DeployBodySchema } from "./_schemas.ts";
+import { DeployBodySchema, EnvSchema } from "./_schemas.ts";
 import type { AgentSlot } from "./worker_pool.ts";
 
 /**
@@ -32,23 +31,19 @@ export async function handleDeploy(
   const storedEnv = await state.store.getEnv(slug) ?? {};
   const env = body.env ? { ...storedEnv, ...body.env } : storedEnv;
 
-  try {
-    loadPlatformConfig(env);
-  } catch (err: unknown) {
+  const envParsed = EnvSchema.safeParse(env);
+  if (!envParsed.success) {
     return json(
-      {
-        error: `Invalid platform config: ${
-          err instanceof Error ? err.message : String(err)
-        }`,
-      },
+      { error: `Invalid platform config: ${envParsed.error.message}` },
       { status: STATUS_CODE.BadRequest },
     );
   }
 
   const existing = state.slots.get(slug);
-  if (existing?.executor) {
+  if (existing?.sandbox) {
     log.info("Replacing existing deploy", { slug });
-    delete existing.executor;
+    existing.sandbox.terminate();
+    delete existing.sandbox;
     delete existing.initializing;
   }
 

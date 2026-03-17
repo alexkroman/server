@@ -20,13 +20,6 @@ function req(path: string, init?: RequestInit) {
 // Public routes
 // =============================================================================
 
-Deno.test("returns landing page for root path", async () => {
-  const { handler } = await createTestOrchestrator();
-  const res = await handler(req("/"), DUMMY_INFO);
-  assertEquals(res.status, 200);
-  assertStringIncludes(await res.text(), "</html>");
-});
-
 Deno.test("returns health check", async () => {
   const { handler } = await createTestOrchestrator();
   const res = await handler(req("/health"), DUMMY_INFO);
@@ -40,23 +33,6 @@ Deno.test("returns Prometheus metrics", async () => {
   assertEquals(res.status, 200);
   assertEquals(res.headers.get("Content-Type"), "text/plain; version=0.0.4");
   assertStringIncludes(await res.text(), "aai_sessions_total");
-});
-
-Deno.test("returns favicon SVG", async () => {
-  const { handler } = await createTestOrchestrator();
-  const res = await handler(req("/favicon.svg"), DUMMY_INFO);
-  assertEquals(res.status, 200);
-  assertEquals(res.headers.get("Content-Type"), "image/svg+xml");
-  assertStringIncludes(await res.text(), "<svg");
-});
-
-Deno.test("returns install script", async () => {
-  const { handler } = await createTestOrchestrator();
-  const res = await handler(req("/install"), DUMMY_INFO);
-  assertEquals(res.status, 200);
-  const body = await res.text();
-  assertStringIncludes(body, "#!/bin/sh");
-  assertStringIncludes(body, "alexkroman/aai");
 });
 
 Deno.test("returns 404 for unknown paths", async () => {
@@ -272,18 +248,9 @@ Deno.test("websocket upgrades for deployed agent", async () => {
     "prepareSession",
     (() =>
       Promise.resolve({
-        agentConfig: {
-          name: "test",
-          instructions: "",
-          greeting: "",
-          voice: "",
-        },
-        toolSchemas: [],
-        platformConfig: {
-          s2sConfig: { inputSampleRate: 24000, outputSampleRate: 24000 },
-        } as never,
-        executeTool: () => Promise.resolve("ok"),
-        hookInvoker: {} as never,
+        startSession: () => {},
+        fetch: () => Promise.resolve(new Response("ok")),
+        terminate: () => {},
       })) as never,
   );
   const res = await handler(

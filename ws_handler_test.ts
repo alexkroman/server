@@ -1,7 +1,7 @@
 // Copyright 2025 the AAI authors. MIT license.
 import { assertEquals } from "@std/assert";
 import { wireSessionSocket, type WsSessionOptions } from "./ws_handler.ts";
-import type { Session } from "./session_s2s.ts";
+import type { Session } from "@aai/sdk/session";
 import type { ReadyConfig } from "@aai/sdk/protocol";
 
 /** Minimal mock Session that records method calls. */
