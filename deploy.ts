@@ -46,10 +46,9 @@ export async function handleDeploy(
   }
 
   const existing = state.slots.get(slug);
-  if (existing?.worker) {
+  if (existing?.executor) {
     log.info("Replacing existing deploy", { slug });
-    existing.worker.handle.terminate();
-    delete existing.worker;
+    delete existing.executor;
     delete existing.initializing;
   }
 

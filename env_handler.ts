@@ -52,12 +52,11 @@ export async function handleEnvSet(
   const merged = { ...existing, ...updates };
   await ctx.state.store.putEnv(slug, merged);
 
-  // Terminate worker so it restarts with fresh env from store
+  // Clear executor so it restarts with fresh env from store
   const slot = ctx.state.slots.get(slug);
-  if (slot?.worker) {
-    log.info("Restarting worker for env update", { slug });
-    slot.worker.handle.terminate();
-    delete slot.worker;
+  if (slot?.executor) {
+    log.info("Restarting executor for env update", { slug });
+    delete slot.executor;
     delete slot.initializing;
   }
 
@@ -81,12 +80,11 @@ export async function handleEnvDelete(
   delete existing[key];
   await ctx.state.store.putEnv(slug, existing);
 
-  // Terminate worker so it restarts with fresh env from store
+  // Clear executor so it restarts with fresh env from store
   const slot = ctx.state.slots.get(slug);
-  if (slot?.worker) {
-    log.info("Restarting worker for env delete", { slug });
-    slot.worker.handle.terminate();
-    delete slot.worker;
+  if (slot?.executor) {
+    log.info("Restarting executor for env delete", { slug });
+    delete slot.executor;
     delete slot.initializing;
   }
 

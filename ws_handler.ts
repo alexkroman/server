@@ -4,24 +4,17 @@
  *
  * @module
  */
-import * as log from "@std/log";
 import {
   wireSessionSocket as _wireSessionSocket,
   type WsSessionOptions as _WsSessionOptions,
 } from "@aai/sdk/ws-handler";
 import type { Session } from "@aai/sdk/session";
+import { denoLogger } from "./logger.ts";
 
 export type { Session };
 
 /** Options for wiring a WebSocket to a session. */
 export type WsSessionOptions = Omit<_WsSessionOptions, "logger">;
-
-const denoLogger = {
-  info: (msg: string, ctx?: Record<string, unknown>) => log.info(msg, ctx),
-  warn: (msg: string, ctx?: Record<string, unknown>) => log.warn(msg, ctx),
-  error: (msg: string, ctx?: Record<string, unknown>) => log.error(msg, ctx),
-  debug: (msg: string, ctx?: Record<string, unknown>) => log.debug(msg, ctx),
-};
 
 /**
  * Attaches session lifecycle handlers to a native WebSocket.
