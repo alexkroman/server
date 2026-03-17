@@ -1,0 +1,109 @@
+{
+  "name": "@aai/server",
+  "version": "0.1.218",
+  "workspace": ["scripts"],
+  "exports": {
+    ".": "./main.ts",
+    "./types": "./types.ts",
+    "./testing": "./_test_utils.ts"
+  },
+  "imports": {
+    "@aai/sdk": "../agent/sdk/mod.ts",
+    "@aai/sdk/types": "../agent/sdk/types.ts",
+    "@aai/sdk/kv": "../agent/sdk/kv.ts",
+    "@aai/sdk/internal-types": "../agent/sdk/_internal_types.ts",
+    "@aai/sdk/protocol": "../agent/sdk/protocol.ts",
+    "@aai/sdk/worker-entry": "../agent/sdk/worker_entry.ts",
+    "@aai/sdk/worker-shim": "../agent/sdk/_worker_shim.ts",
+    "@aai/sdk/timeout": "../agent/sdk/_timeout.ts",
+    "@aai/sdk/capnweb-transport": "../agent/sdk/_capnweb_transport.ts",
+    "@aai/sdk/runtime": "../agent/sdk/runtime.ts",
+    "@aai/sdk/s2s": "../agent/sdk/s2s.ts",
+    "@aai/sdk/session": "../agent/sdk/session.ts",
+    "@aai/sdk/system-prompt": "../agent/sdk/system_prompt.ts",
+    "@aai/sdk/ws-handler": "../agent/sdk/ws_handler.ts",
+    "@aai/sdk/builtin-tools": "../agent/sdk/builtin_tools.ts",
+    "@aai/sdk/vector": "../agent/sdk/vector.ts",
+    "@aai/sdk/testing": "../agent/sdk/_mock_ws.ts",
+    "p-timeout": "npm:p-timeout@^7.0.1",
+    "@std/testing": "jsr:@std/testing@^1.0.17",
+    "@std/assert": "jsr:@std/assert@^1.0.19",
+    "@std/fmt": "jsr:@std/fmt@^1.0.9",
+    "@std/cli": "jsr:@std/cli@^1.0.28",
+    "@std/path": "jsr:@std/path@^1.1.4",
+    "@std/async": "jsr:@std/async@^1.2.0",
+    "@std/dotenv": "jsr:@std/dotenv@0.225.6",
+    "@std/html": "jsr:@std/html@^1.0.5",
+    "@std/bytes": "jsr:@std/bytes@^1.0.6",
+    "@std/fs": "jsr:@std/fs@^1.0.23",
+    "@std/http": "jsr:@std/http@^1.0.25",
+    "@std/crypto": "jsr:@std/crypto@^1.0.5",
+    "@std/encoding": "jsr:@std/encoding@^1.0.10",
+    "@std/log": "jsr:@std/log@^0.224.14",
+    "@std/net": "jsr:@std/net@^1.0.6",
+    "@std/semver": "jsr:@std/semver@^1.0.8",
+    "@std/text": "jsr:@std/text@^1.0.17",
+    "zod": "jsr:@zod/zod@^4.3.6",
+    "json-schema": "npm:@types/json-schema@^7.0.15",
+    "capnweb": "npm:capnweb@^0.1",
+    "@aws-sdk/client-s3": "npm:@aws-sdk/client-s3@^3.1001.0",
+    "@upstash/redis": "npm:@upstash/redis@^1.36.1",
+    "@upstash/vector": "npm:@upstash/vector@^1",
+    "mdream": "npm:mdream@^0",
+    "assemblyai": "npm:assemblyai@^4",
+    "ws": "npm:ws@^8",
+    "preact": "npm:preact@^10.28.4",
+    "preact-render-to-string": "npm:preact-render-to-string@^6.5.13",
+    "markdownlint-cli": "npm:markdownlint-cli@^0.44.0"
+  },
+  "tasks": {
+    "serve": "deno run --allow-all --unstable-worker-options main.ts",
+    "test": "deno test --allow-net --allow-read --allow-write --allow-env --allow-run --allow-sys --unstable-worker-options .",
+    "check": "deno check *.ts *.tsx && deno lint && deno fmt --check && deno task test",
+    "setup": "git config core.hooksPath .githooks"
+  },
+  "nodeModulesDir": "auto",
+  "compilerOptions": {
+    "strict": true,
+    "exactOptionalPropertyTypes": true,
+    "useUnknownInCatchVariables": true,
+    "noImplicitOverride": true,
+    "noUncheckedIndexedAccess": true,
+    "lib": [
+      "deno.ns",
+      "deno.unstable",
+      "deno.window",
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact"
+  },
+  "fmt": {
+    "exclude": ["**/node_modules/"]
+  },
+  "lint": {
+    "exclude": ["**/node_modules/"],
+    "rules": {
+      "tags": ["recommended", "jsr", "react", "workspace"],
+      "include": [
+        "camelcase",
+        "no-sync-fn-in-async-fn",
+        "single-var-declarator",
+        "verbatim-module-syntax",
+        "no-unused-vars"
+      ],
+      "exclude": [
+        "require-await"
+      ]
+    }
+  },
+  "publish": {
+    "exclude": [
+      "*_test.ts",
+      "*_test.tsx"
+    ]
+  },
+  "license": "MIT"
+}
