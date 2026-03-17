@@ -10,7 +10,6 @@
     "jsr:@std/fs@^1.0.11": "1.0.23",
     "jsr:@std/fs@^1.0.22": "1.0.23",
     "jsr:@std/fs@^1.0.23": "1.0.23",
-    "jsr:@std/html@^1.0.5": "1.0.5",
     "jsr:@std/http@^1.0.25": "1.0.25",
     "jsr:@std/internal@^1.0.12": "1.0.12",
     "jsr:@std/io@~0.225.2": "0.225.3",
@@ -28,8 +27,6 @@
     "npm:markdownlint-cli@0.44": "0.44.0",
     "npm:mdream@0": "0.17.0",
     "npm:p-timeout@^7.0.1": "7.0.1",
-    "npm:preact-render-to-string@^6.5.13": "6.6.6_preact@10.29.0",
-    "npm:preact@^10.28.4": "10.29.0",
     "npm:ws@8": "8.19.0"
   },
   "jsr": {
@@ -53,9 +50,6 @@
       "dependencies": [
         "jsr:@std/path"
       ]
-    },
-    "@std/html@1.0.5": {
-      "integrity": "4e2d693f474cae8c16a920fa5e15a3b72267b94b84667f11a50c6dd1cb18d35e"
     },
     "@std/http@1.0.25": {
       "integrity": "577b4252290af1097132812b339fffdd55fb0f4aeb98ff11bdbf67998aa17193"
@@ -1633,15 +1627,6 @@
     "picomatch@4.0.3": {
       "integrity": "sha512-5gTmgEY/sqK6gFXLIsQNH19lWb4ebPDLA4SdLP7dsWkIXHWlG66oPuVvXSGFPppYZz8ZDZq0dYYrbHfBCVUb1Q=="
     },
-    "preact-render-to-string@6.6.6_preact@10.29.0": {
-      "integrity": "sha512-EfqZJytnjJldV+YaaqhthU2oXsEf5e+6rDv957p+zxAvNfFLQOPfvBOTncscQ+akzu6Wrl7s3Pa0LjUQmWJsGQ==",
-      "dependencies": [
-        "preact"
-      ]
-    },
-    "preact@10.29.0": {
-      "integrity": "sha512-wSAGyk2bYR1c7t3SZ3jHcM6xy0lcBcDel6lODcs9ME6Th++Dx2KU+6D3HD8wMMKGA8Wpw7OMd3/4RGzYRpzwRg=="
-    },
     "punycode.js@2.3.1": {
       "integrity": "sha512-uxFIHU0YlHYhDQtV4R9J6a52SLx28BCjT+4ieh7IGbgwVJWO+km431c4yRlREUAsAmt/uMjQUyQHNEPf0M39CA=="
     },
@@ -1758,7 +1743,6 @@
       "jsr:@std/encoding@^1.0.10",
       "jsr:@std/fmt@^1.0.9",
       "jsr:@std/fs@^1.0.23",
-      "jsr:@std/html@^1.0.5",
       "jsr:@std/http@^1.0.25",
       "jsr:@std/log@~0.224.14",
       "jsr:@std/net@^1.0.6",
@@ -1775,8 +1759,6 @@
       "npm:markdownlint-cli@0.44",
       "npm:mdream@0",
       "npm:p-timeout@^7.0.1",
-      "npm:preact-render-to-string@^6.5.13",
-      "npm:preact@^10.28.4",
       "npm:ws@8"
     ]
   }

@@ -29,19 +29,19 @@ async function deployAndAuth(slug = "my-agent", key = "key1") {
 }
 
 // =============================================================================
-// GET /env — list
+// GET /secret — list
 // =============================================================================
 
-Deno.test("env list rejects without auth", async () => {
+Deno.test("secret list rejects without auth", async () => {
   const { handler } = await deployAndAuth();
-  const res = await handler(req("/my-agent/env"), DUMMY_INFO);
+  const res = await handler(req("/my-agent/secret"), DUMMY_INFO);
   assertEquals(res.status, 401);
 });
 
-Deno.test("env list returns var names for deployed agent", async () => {
+Deno.test("secret list returns var names for deployed agent", async () => {
   const { handler, key } = await deployAndAuth();
   const res = await handler(
-    req("/my-agent/env", {
+    req("/my-agent/secret", {
       headers: { Authorization: `Bearer ${key}` },
     }),
     DUMMY_INFO,
@@ -52,13 +52,13 @@ Deno.test("env list returns var names for deployed agent", async () => {
 });
 
 // =============================================================================
-// PUT /env — set
+// PUT /secret — set
 // =============================================================================
 
-Deno.test("env set rejects without auth", async () => {
+Deno.test("secret set rejects without auth", async () => {
   const { handler } = await deployAndAuth();
   const res = await handler(
-    req("/my-agent/env", {
+    req("/my-agent/secret", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ MY_KEY: "secret" }),
@@ -68,11 +68,11 @@ Deno.test("env set rejects without auth", async () => {
   assertEquals(res.status, 401);
 });
 
-Deno.test("env set merges new vars", async () => {
+Deno.test("secret set merges new vars", async () => {
   const { handler, key } = await deployAndAuth();
 
   const setRes = await handler(
-    req("/my-agent/env", {
+    req("/my-agent/secret", {
       method: "PUT",
       headers: {
         Authorization: `Bearer ${key}`,
@@ -89,7 +89,7 @@ Deno.test("env set merges new vars", async () => {
 
   // Verify via list
   const listRes = await handler(
-    req("/my-agent/env", {
+    req("/my-agent/secret", {
       headers: { Authorization: `Bearer ${key}` },
     }),
     DUMMY_INFO,
@@ -98,11 +98,11 @@ Deno.test("env set merges new vars", async () => {
   assertEquals(listBody.vars.sort(), ["ASSEMBLYAI_API_KEY", "MY_KEY"]);
 });
 
-Deno.test("env set rejects non-object body", async () => {
+Deno.test("secret set rejects non-object body", async () => {
   const { handler, key } = await deployAndAuth();
 
   const res = await handler(
-    req("/my-agent/env", {
+    req("/my-agent/secret", {
       method: "PUT",
       headers: {
         Authorization: `Bearer ${key}`,
@@ -115,11 +115,11 @@ Deno.test("env set rejects non-object body", async () => {
   assertEquals(res.status, 400);
 });
 
-Deno.test("env set rejects non-string values", async () => {
+Deno.test("secret set rejects non-string values", async () => {
   const { handler, key } = await deployAndAuth();
 
   const res = await handler(
-    req("/my-agent/env", {
+    req("/my-agent/secret", {
       method: "PUT",
       headers: {
         Authorization: `Bearer ${key}`,
@@ -133,24 +133,24 @@ Deno.test("env set rejects non-string values", async () => {
 });
 
 // =============================================================================
-// DELETE /env/:key — remove
+// DELETE /secret/:key — remove
 // =============================================================================
 
-Deno.test("env delete rejects without auth", async () => {
+Deno.test("secret delete rejects without auth", async () => {
   const { handler } = await deployAndAuth();
   const res = await handler(
-    req("/my-agent/env/ASSEMBLYAI_API_KEY", { method: "DELETE" }),
+    req("/my-agent/secret/ASSEMBLYAI_API_KEY", { method: "DELETE" }),
     DUMMY_INFO,
   );
   assertEquals(res.status, 401);
 });
 
-Deno.test("env delete removes a key", async () => {
+Deno.test("secret delete removes a key", async () => {
   const { handler, key } = await deployAndAuth();
 
   // Add an extra key first
   await handler(
-    req("/my-agent/env", {
+    req("/my-agent/secret", {
       method: "PUT",
       headers: {
         Authorization: `Bearer ${key}`,
@@ -163,7 +163,7 @@ Deno.test("env delete removes a key", async () => {
 
   // Delete it
   const delRes = await handler(
-    req("/my-agent/env/EXTRA", {
+    req("/my-agent/secret/EXTRA", {
       method: "DELETE",
       headers: { Authorization: `Bearer ${key}` },
     }),
@@ -174,7 +174,7 @@ Deno.test("env delete removes a key", async () => {
 
   // Verify it's gone
   const listRes = await handler(
-    req("/my-agent/env", {
+    req("/my-agent/secret", {
       headers: { Authorization: `Bearer ${key}` },
     }),
     DUMMY_INFO,
@@ -183,16 +183,16 @@ Deno.test("env delete removes a key", async () => {
   assertEquals(listBody.vars, ["ASSEMBLYAI_API_KEY"]);
 });
 
-Deno.test("env delete returns 404 for unknown agent", async () => {
+Deno.test("secret delete returns 404 for unknown agent", async () => {
   const { handler, key } = await deployAndAuth();
   const res = await handler(
-    req("/nonexistent/env/KEY", {
+    req("/nonexistent/secret/KEY", {
       method: "DELETE",
       headers: { Authorization: `Bearer ${key}` },
     }),
     DUMMY_INFO,
   );
   // 404 because the agent doesn't exist (unclaimed slug, no manifest)
-  // The requireOwner will succeed (unclaimed), but handleEnvDelete will 404
+  // The requireOwner will succeed (unclaimed), but handleSecretDelete will 404
   assertEquals(res.status, 404);
 });

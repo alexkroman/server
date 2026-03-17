@@ -2,11 +2,8 @@
 import * as log from "@std/log";
 import { html, HttpError, json, type RouteContext } from "./context.ts";
 import { STATUS_CODE } from "@std/http/status";
-import { wireSessionSocket } from "./ws_handler.ts";
-import { createS2sSession } from "./session_s2s.ts";
 import { type AgentSlot, prepareSession, registerSlot } from "./worker_pool.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
-import { AUDIO_FORMAT, PROTOCOL_VERSION } from "@aai/sdk/protocol";
 
 export const _internals = { prepareSession };
 
@@ -86,7 +83,7 @@ export async function handleWebSocket(
   slug: string,
 ): Promise<Response> {
   const slot = await requireSlot(slug, ctx.state);
-  const setup = await _internals.prepareSession(slot, {
+  const sandbox = await _internals.prepareSession(slot, {
     slug,
     store: ctx.state.store,
     kvStore: ctx.state.kvStore,
@@ -95,26 +92,7 @@ export async function handleWebSocket(
   const resume = new URL(ctx.req.url).searchParams.has("resume");
 
   const { socket, response } = Deno.upgradeWebSocket(ctx.req);
-
-  wireSessionSocket(socket, {
-    sessions: ctx.state.sessions,
-    createSession: (sessionId, client) =>
-      createS2sSession({
-        id: sessionId,
-        agent: slug,
-        client,
-        ...setup,
-        skipGreeting: resume,
-      }),
-    readyConfig: {
-      protocolVersion: PROTOCOL_VERSION,
-      audioFormat: AUDIO_FORMAT,
-      sampleRate: setup.platformConfig.s2sConfig.inputSampleRate,
-      ttsSampleRate: setup.platformConfig.s2sConfig.outputSampleRate,
-      mode: "s2s",
-    },
-    logContext: { slug },
-  });
+  sandbox.startSession(socket, resume);
 
   return response;
 }

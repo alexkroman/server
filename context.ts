@@ -2,7 +2,7 @@
 import { STATUS_CODE } from "@std/http/status";
 import type { AgentSlot } from "./worker_pool.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
-import type { Session } from "./session_s2s.ts";
+import type { Session } from "@aai/sdk/session";
 import type { ScopeKey } from "./scope_token.ts";
 import type { KvStore } from "./kv.ts";
 import type { ServerVectorStore } from "./vector.ts";

@@ -1,10 +1,8 @@
 {
   "name": "@aai/server",
   "version": "0.1.218",
-  "workspace": ["scripts"],
   "exports": {
     ".": "./main.ts",
-    "./types": "./types.ts",
     "./testing": "./_test_utils.ts"
   },
   "imports": {
@@ -23,6 +21,9 @@
     "@aai/sdk/builtin-tools": "../agent/sdk/builtin_tools.ts",
     "@aai/sdk/direct-executor": "../agent/sdk/direct_executor.ts",
     "@aai/sdk/vector": "../agent/sdk/vector.ts",
+    "@aai/sdk/capnweb": "../agent/sdk/capnweb.ts",
+    "@aai/sdk/winterc-server": "../agent/sdk/winterc_server.ts",
+    "@aai/sdk/worker-shim": "../agent/sdk/worker_shim.ts",
     "@aai/sdk/testing": "../agent/sdk/_mock_ws.ts",
     "p-timeout": "npm:p-timeout@^7.0.1",
     "@std/testing": "jsr:@std/testing@^1.0.17",
@@ -32,7 +33,6 @@
     "@std/path": "jsr:@std/path@^1.1.4",
     "@std/async": "jsr:@std/async@^1.2.0",
     "@std/dotenv": "jsr:@std/dotenv@0.225.6",
-    "@std/html": "jsr:@std/html@^1.0.5",
     "@std/bytes": "jsr:@std/bytes@^1.0.6",
     "@std/fs": "jsr:@std/fs@^1.0.23",
     "@std/http": "jsr:@std/http@^1.0.25",
@@ -50,14 +50,12 @@
     "mdream": "npm:mdream@^0",
     "assemblyai": "npm:assemblyai@^4",
     "ws": "npm:ws@^8",
-    "preact": "npm:preact@^10.28.4",
-    "preact-render-to-string": "npm:preact-render-to-string@^6.5.13",
     "markdownlint-cli": "npm:markdownlint-cli@^0.44.0"
   },
   "tasks": {
     "serve": "deno run --allow-all main.ts",
     "test": "deno test --allow-net --allow-read --allow-write --allow-env --allow-run --allow-sys .",
-    "check": "deno check *.ts *.tsx && deno lint && deno fmt --check && deno task test",
+    "check": "deno check *.ts && deno lint && deno fmt --check && deno task test",
     "setup": "git config core.hooksPath .githooks"
   },
   "nodeModulesDir": "auto",
@@ -74,9 +72,7 @@
       "dom",
       "dom.iterable",
       "esnext"
-    ],
-    "jsx": "react-jsx",
-    "jsxImportSource": "preact"
+    ]
   },
   "fmt": {
     "exclude": ["**/node_modules/"]
@@ -84,7 +80,7 @@
   "lint": {
     "exclude": ["**/node_modules/"],
     "rules": {
-      "tags": ["recommended", "jsr", "react", "workspace"],
+      "tags": ["recommended", "jsr", "workspace"],
       "include": [
         "camelcase",
         "no-sync-fn-in-async-fn",
@@ -99,8 +95,7 @@
   },
   "publish": {
     "exclude": [
-      "*_test.ts",
-      "*_test.tsx"
+      "*_test.ts"
     ]
   },
   "license": "MIT"
