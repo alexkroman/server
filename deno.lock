@@ -25,7 +25,6 @@
     "npm:@upstash/redis@^1.36.1": "1.37.0",
     "npm:@upstash/vector@1": "1.2.3",
     "npm:assemblyai@4": "4.27.0",
-    "npm:capnweb@0.1": "0.1.0",
     "npm:markdownlint-cli@0.44": "0.44.0",
     "npm:mdream@0": "0.17.0",
     "npm:p-timeout@^7.0.1": "7.0.1",
@@ -1135,9 +1134,6 @@
     "cac@7.0.0": {
       "integrity": "sha512-tixWYgm5ZoOD+3g6UTea91eow5z6AAHaho3g0V9CNSNb45gM8SmflpAc+GRd1InC4AqN/07Unrgp56Y94N9hJQ=="
     },
-    "capnweb@0.1.0": {
-      "integrity": "sha512-+pygKx1JFTZTRdd1hHgaBRg5BwULEDZq8ZoHXkYP2GXNV3lrjXLj5qzlGz+SgBCJjWUmNBtlh7JPWdr0wIbY8w=="
-    },
     "character-entities-legacy@3.0.0": {
       "integrity": "sha512-RpPp0asT/6ufRm//AJVwpViZbGM/MkjQFxJccQRHmISF/22NBtsHqAWmL+/pmkPWoIUJdWyeVleTl1wydHATVQ=="
     },
@@ -1776,7 +1772,6 @@
       "npm:@upstash/redis@^1.36.1",
       "npm:@upstash/vector@1",
       "npm:assemblyai@4",
-      "npm:capnweb@0.1",
       "npm:markdownlint-cli@0.44",
       "npm:mdream@0",
       "npm:p-timeout@^7.0.1",

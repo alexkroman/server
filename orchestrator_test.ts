@@ -283,7 +283,7 @@ Deno.test("websocket upgrades for deployed agent", async () => {
           s2sConfig: { inputSampleRate: 24000, outputSampleRate: 24000 },
         } as never,
         executeTool: () => Promise.resolve("ok"),
-        getWorkerApi: () => Promise.resolve({} as never),
+        hookInvoker: {} as never,
       })) as never,
   );
   const res = await handler(

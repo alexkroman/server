@@ -3,25 +3,25 @@ import * as log from "@std/log";
 import { encodeBase64 } from "@std/encoding/base64";
 import { loadPlatformConfig } from "./config.ts";
 import type { AgentConfig, ToolSchema } from "@aai/sdk/internal-types";
-import { createWorkerApi, type WorkerApi } from "./_worker_entry.ts";
-import type { ExecuteTool } from "./_worker_entry.ts";
-import type { HostApi, KvRequest } from "@aai/sdk/protocol";
-import { TOOL_EXECUTION_TIMEOUT_MS } from "@aai/sdk/protocol";
+import type { ExecuteTool } from "@aai/sdk/worker-entry";
+import { getBuiltinToolSchemas } from "@aai/sdk/builtin-tools";
+import {
+  createDirectExecutor,
+  type DirectExecutor,
+} from "@aai/sdk/direct-executor";
+import type { HookInvoker } from "@aai/sdk/session";
+import type { Kv } from "@aai/sdk/kv";
 import type { BundleStore } from "./bundle_store_tigris.ts";
 import type { AgentMetadata } from "./_schemas.ts";
-import { createDenoWorker, LOCKED_PERMISSIONS } from "./_deno_worker.ts";
-import { assertPublicUrl } from "./builtin_tools.ts";
-import { getBuiltinToolSchemas } from "@aai/sdk/builtin-tools";
 import type { KvStore } from "./kv.ts";
 import type { ServerVectorStore } from "./vector.ts";
 import type { AgentScope } from "./scope_token.ts";
-import { KvRequestBaseSchema, WorkerFetchRequestSchema } from "./_schemas.ts";
 export type { AgentMetadata } from "./_schemas.ts";
 
 const IDLE_MS = 5 * 60 * 1000;
 
 /**
- * Runtime state for a deployed agent, including its worker process and
+ * Runtime state for a deployed agent, including its in-process executor and
  * cached configuration. Managed by the worker pool.
  */
 export type AgentSlot = {
@@ -37,13 +37,48 @@ export type AgentSlot = {
   toolSchemas: ToolSchema[];
   /** Credential hash of the agent owner (for KV scoping). */
   keyHash: string;
-  /** Active worker handle and RPC API proxy. */
-  worker?: { handle: { terminate(): void }; api: WorkerApi };
-  /** Promise that resolves when the worker is done initializing. */
+  /** Active in-process executor for tool calls and hooks. */
+  executor?: DirectExecutor;
+  /** Promise that resolves when the executor is done initializing. */
   initializing?: Promise<void>;
-  /** Timer handle for idle worker eviction. */
+  /** Timer handle for idle executor eviction. */
   idleTimer?: ReturnType<typeof setTimeout>;
 };
+
+/** Adapt the server's scoped KvStore to the SDK's Kv interface. */
+function createScopedKv(kvStore: KvStore, scope: AgentScope): Kv {
+  return {
+    async get<T = unknown>(key: string): Promise<T | null> {
+      const raw = await kvStore.get(scope, key);
+      if (raw === null) return null;
+      try {
+        return JSON.parse(raw) as T;
+      } catch {
+        return raw as unknown as T;
+      }
+    },
+    async set(
+      key: string,
+      value: unknown,
+      options?: { expireIn?: number },
+    ): Promise<void> {
+      const ttl = options?.expireIn
+        ? Math.ceil(options.expireIn / 1000)
+        : undefined;
+      await kvStore.set(scope, key, JSON.stringify(value), ttl);
+    },
+    async delete(key: string): Promise<void> {
+      await kvStore.del(scope, key);
+    },
+    async list<T = unknown>(
+      prefix: string,
+      options?: { limit?: number; reverse?: boolean },
+    ): Promise<{ key: string; value: T }[]> {
+      const entries = await kvStore.list(scope, prefix, options);
+      return entries.map((e) => ({ key: e.key, value: e.value as T }));
+    },
+  };
+}
 
 async function spawnAgent(
   slot: AgentSlot,
@@ -59,123 +94,29 @@ async function spawnAgent(
   const { slug } = slot;
   const { getWorkerCode, kvCtx, vectorCtx, getEnv } = opts;
 
-  log.info("Spawning agent worker", { slug });
+  log.info("Loading agent module", { slug });
 
   if (!getWorkerCode) {
     throw new Error(`No worker code source for ${slug}`);
   }
   const code = await getWorkerCode(slug);
   if (!code) throw new Error(`Worker code not found for ${slug}`);
-  const workerUrl = `data:application/javascript;base64,${encodeBase64(code)}`;
 
-  const worker = createDenoWorker(workerUrl, slug, LOCKED_PERMISSIONS);
+  const dataUrl = `data:application/javascript;base64,${encodeBase64(code)}`;
+  const mod = await import(dataUrl);
+  const agent = mod.default;
+  if (!agent) throw new Error(`Bundle for ${slug} has no default export`);
 
-  let lastCrash = 0;
-  worker.addEventListener(
-    "error",
-    ((event: ErrorEvent) => {
-      log.error("Worker died", { slug, error: event.message });
-      if (slot.worker?.handle !== worker) return;
-      delete slot.worker;
-
-      const now = Date.now();
-      if (now - lastCrash < 5_000) {
-        log.error("Worker crash loop, not respawning", { slug });
-        return;
-      }
-      lastCrash = now;
-      log.info("Respawning worker", { slug });
-      spawnAgent(slot, opts).catch(
-        (err: unknown) => {
-          log.error("Worker respawn failed", {
-            slug,
-            error: err instanceof Error ? err.message : String(err),
-          });
-        },
-      );
-    }) as EventListener,
-  );
-
-  // Decrypt env on demand — plaintext only lives for the duration of this call.
   const env = await getEnv();
-  const api = createWorkerApi(worker, createHostApi(kvCtx, vectorCtx), env);
-  slot.worker = { handle: worker, api };
-}
 
-function createHostApi(
-  kvCtx?: { kvStore: KvStore; scope: AgentScope },
-  vectorCtx?: { vectorStore: ServerVectorStore; scope: AgentScope },
-): HostApi {
-  return {
-    async fetch(req: Parameters<HostApi["fetch"]>[0]) {
-      const parsed = WorkerFetchRequestSchema.parse(req);
-      await assertPublicUrl(parsed.url);
-      const resp = await fetch(parsed.url, {
-        method: parsed.method,
-        headers: parsed.headers,
-        body: parsed.body,
-        signal: AbortSignal.timeout(5_000),
-      });
-      const body = await resp.text();
-      const headers: Record<string, string> = {};
-      resp.headers.forEach((v, k) => {
-        headers[k] = v;
-      });
-      return {
-        status: resp.status,
-        statusText: resp.statusText,
-        headers,
-        body,
-      };
-    },
+  const kv = kvCtx ? createScopedKv(kvCtx.kvStore, kvCtx.scope) : undefined;
 
-    async kv(req: KvRequest): Promise<{ result: unknown }> {
-      if (!kvCtx) throw new Error("KV not configured for this agent");
-      const validated = KvRequestBaseSchema.parse(req);
-      const { kvStore, scope } = kvCtx;
-      switch (validated.op) {
-        case "get":
-          return { result: await kvStore.get(scope, validated.key) };
-        case "set":
-          await kvStore.set(
-            scope,
-            validated.key,
-            validated.value,
-            validated.ttl,
-          );
-          return { result: "OK" };
-        case "del":
-          await kvStore.del(scope, validated.key);
-          return { result: "OK" };
-        case "list":
-          return {
-            result: await kvStore.list(scope, validated.prefix, {
-              ...(validated.limit !== undefined && {
-                limit: validated.limit,
-              }),
-              ...(validated.reverse !== undefined && {
-                reverse: validated.reverse,
-              }),
-            }),
-          };
-        default:
-          throw new Error(
-            `Unknown KV operation: ${(validated as { op: string }).op}`,
-          );
-      }
-    },
-
-    async vectorSearch(req: {
-      query: string;
-      topK: number;
-    }): Promise<string> {
-      if (!vectorCtx) {
-        return JSON.stringify({ error: "Vector store not configured" });
-      }
+  const vectorSearch = vectorCtx
+    ? async (query: string, topK: number): Promise<string> => {
       const results = await vectorCtx.vectorStore.query(
         vectorCtx.scope,
-        req.query,
-        req.topK,
+        query,
+        topK,
       );
       if (results.length === 0) return "No relevant results found.";
       return JSON.stringify(
@@ -185,17 +126,23 @@ function createHostApi(
           metadata: r.metadata,
         })),
       );
-    },
-  };
+    }
+    : undefined;
+
+  slot.executor = createDirectExecutor({
+    agent,
+    env,
+    ...(kv ? { kv } : {}),
+    ...(vectorSearch ? { vectorSearch } : {}),
+  });
 }
 
 function resetIdleTimer(slot: AgentSlot): void {
   if (slot.idleTimer) clearTimeout(slot.idleTimer);
   const id = setTimeout(() => {
-    if (!slot.worker) return;
-    log.info("Evicting idle worker", { slug: slot.slug });
-    slot.worker.handle.terminate();
-    delete slot.worker;
+    if (!slot.executor) return;
+    log.info("Evicting idle executor", { slug: slot.slug });
+    delete slot.executor;
     delete slot.idleTimer;
   }, IDLE_MS);
   Deno.unrefTimer(id);
@@ -203,17 +150,11 @@ function resetIdleTimer(slot: AgentSlot): void {
 }
 
 /**
- * Ensures an agent worker is running for the given slot.
+ * Ensures an agent executor is running for the given slot.
  *
- * If a worker is already active, resets its idle eviction timer. If no worker
- * exists, spawns a new one and extracts its configuration. Concurrent calls
- * for the same slot coalesce into a single initialization promise.
- *
- * @param slot - The agent slot to ensure has a running worker.
- * @param getWorkerCode - Async function to retrieve the bundled worker JS by slug.
- * @param kvCtx - Optional KV context for agents with KV access.
- * @returns A promise that resolves when the worker is ready.
- * @throws If the worker code cannot be found or the worker fails to initialize.
+ * If an executor is already active, resets its idle eviction timer. If no
+ * executor exists, loads the bundle and creates one. Concurrent calls for
+ * the same slot coalesce into a single initialization promise.
  */
 export function ensureAgent(
   slot: AgentSlot,
@@ -226,21 +167,15 @@ export function ensureAgent(
     getEnv: () => Promise<Record<string, string>>;
   },
 ): Promise<void> {
-  const { getWorkerCode, kvCtx, vectorCtx, getEnv } = opts;
   const t0 = performance.now();
 
-  if (slot.worker) {
+  if (slot.executor) {
     resetIdleTimer(slot);
     return Promise.resolve();
   }
   if (slot.initializing) return slot.initializing;
 
-  slot.initializing = spawnAgent(slot, {
-    getWorkerCode,
-    kvCtx,
-    vectorCtx,
-    getEnv,
-  }).then(
+  slot.initializing = spawnAgent(slot, opts).then(
     () => {
       delete slot.initializing;
       resetIdleTimer(slot);
@@ -263,10 +198,6 @@ export function ensureAgent(
  *
  * Validates that the metadata contains a valid platform config before
  * registering. Agents with missing or invalid config are skipped.
- *
- * @param slots - The map of active agent slots to register into.
- * @param metadata - Agent metadata from the bundle store.
- * @returns `true` if the slot was registered, `false` if skipped due to invalid config.
  */
 export function registerSlot(
   slots: Map<string, AgentSlot>,
@@ -303,8 +234,8 @@ export type SessionSetup = {
   platformConfig: ReturnType<typeof loadPlatformConfig>;
   /** Function to execute a tool call in the agent worker. */
   executeTool: ExecuteTool;
-  /** Factory to lazily obtain the worker API. */
-  getWorkerApi: () => Promise<WorkerApi>;
+  /** Hook invoker for lifecycle callbacks. */
+  hookInvoker: HookInvoker;
   /** Environment variables available to the agent. */
   env?: Record<string, string | undefined>;
 };
@@ -312,15 +243,8 @@ export type SessionSetup = {
 /**
  * Prepares all dependencies needed to create a session for an agent.
  *
- * Boots the agent worker (if not already running), extracts its configuration,
+ * Loads the agent bundle (if not already loaded), creates a direct executor,
  * and assembles tool schemas, platform config, and tool execution functions.
- *
- * @param slot - The agent slot to prepare a session for.
- * @param slug - The agent's slug identifier.
- * @param store - Bundle store for retrieving worker code.
- * @param kvStore - Key-value store for agent state persistence.
- * @returns A {@linkcode SessionSetup} with everything needed to create a session.
- * @throws If the worker cannot be spawned or config cannot be extracted.
  */
 export async function prepareSession(
   slot: AgentSlot,
@@ -337,28 +261,15 @@ export async function prepareSession(
   const vectorCtx = vectorStore ? { vectorStore, scope } : undefined;
   const getWorkerCode = (s: string) => store.getFile(s, "worker");
   const getEnv = async () => await store.getEnv(slug) ?? {};
-  const getWorkerApi = async () => {
-    await ensureAgent(slot, { getWorkerCode, kvCtx, vectorCtx, getEnv });
-    return slot.worker!.api;
-  };
-  const executeTool: ExecuteTool = async (name, args, sessionId, messages) => {
-    const api = await getWorkerApi();
-    return api.executeTool(
-      name,
-      args,
-      sessionId,
-      TOOL_EXECUTION_TIMEOUT_MS,
-      messages,
-    );
-  };
 
-  // Boot worker and extract config from agent definition
-  await getWorkerApi();
+  // Load bundle and create executor
+  await ensureAgent(slot, { getWorkerCode, kvCtx, vectorCtx, getEnv });
+  const executor = slot.executor!;
   const config = slot.config;
 
   // Decrypt env for platform config and session — plaintext is not persisted.
   const env = await getEnv();
-  // Tool schemas include both custom and builtin tools (registered in the worker)
+  // Tool schemas include both custom and builtin tools
   const builtinSchemas = getBuiltinToolSchemas(config.builtinTools ?? []);
   const toolSchemas = [...slot.toolSchemas, ...builtinSchemas];
 
@@ -366,8 +277,8 @@ export async function prepareSession(
     agentConfig: config,
     toolSchemas,
     platformConfig: loadPlatformConfig(env),
-    executeTool,
-    getWorkerApi,
+    executeTool: executor.executeTool,
+    hookInvoker: executor.hookInvoker,
     env,
   };
 }

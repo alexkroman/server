@@ -5,7 +5,6 @@
  *
  * @module
  */
-import * as log from "@std/log";
 import type { S2SConfig } from "./types.ts";
 import WebSocket from "ws";
 import {
@@ -17,6 +16,7 @@ import {
   type S2sToolSchema,
   type S2sWebSocket,
 } from "@aai/sdk/s2s";
+import { denoLogger } from "./logger.ts";
 
 export type {
   ConnectS2sOptions,
@@ -24,13 +24,6 @@ export type {
   S2sSessionConfig,
   S2sToolCall,
   S2sToolSchema,
-};
-
-const denoLogger = {
-  info: (msg: string, ctx?: Record<string, unknown>) => log.info(msg, ctx),
-  warn: (msg: string, ctx?: Record<string, unknown>) => log.warn(msg, ctx),
-  error: (msg: string, ctx?: Record<string, unknown>) => log.error(msg, ctx),
-  debug: (msg: string, ctx?: Record<string, unknown>) => log.debug(msg, ctx),
 };
 
 /** Create a `ws`-backed WebSocket factory for the S2S client. */

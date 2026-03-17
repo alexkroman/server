@@ -131,25 +131,6 @@ export function isValidAudioChunk(data: Uint8Array): boolean {
     data.byteLength % 2 === 0;
 }
 
-// ─── Worker input validation ────────────────────────────────────────────────
-
-/** Zod schema for TurnConfig returned by the worker's resolveTurnConfig hook. */
-export const TurnConfigSchema = z.object({
-  maxSteps: z.number().int().positive().max(50).optional(),
-  activeTools: z.array(z.string().min(1)).optional(),
-}).nullable();
-
-/** Max length for a tool execution result string from the worker (1 MB). */
-export const MAX_TOOL_RESULT_LENGTH = 1_048_576;
-
-/** Zod schema for worker fetch proxy requests. */
-export const WorkerFetchRequestSchema = z.object({
-  url: z.string().max(8_192),
-  method: z.enum(["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"]),
-  headers: z.record(z.string(), z.string()),
-  body: z.string().max(10_000_000).nullable(),
-});
-
 // ─── KV schemas ─────────────────────────────────────────────────────────────
 
 /**
