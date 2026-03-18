@@ -51,8 +51,8 @@
     "markdownlint-cli": "npm:markdownlint-cli@^0.44.0"
   },
   "tasks": {
-    "serve": "deno run --allow-all main.ts",
-    "test": "deno test --allow-net --allow-read --allow-write --allow-env --allow-run --allow-sys .",
+    "serve": "deno run --allow-all --unstable-worker-options main.ts",
+    "test": "deno test --allow-net --allow-read --allow-write --allow-env --allow-run --allow-sys --unstable-worker-options .",
     "check": "deno check *.ts && deno lint && deno fmt --check && deno task test",
     "setup": "git config core.hooksPath .githooks"
   },
