@@ -74,7 +74,7 @@ type Histogram = {
   serialize(agent?: string): string;
 };
 
-export function createCounter(
+function createCounter(
   name: string,
   opts: { help: string; labelNames?: string[] },
 ): Counter {
@@ -100,7 +100,7 @@ export function createCounter(
   };
 }
 
-export function createGauge(
+function createGauge(
   name: string,
   opts: { help: string; labelNames?: string[] },
 ): Gauge {
@@ -133,7 +133,7 @@ export function createGauge(
 
 type HistogramEntry = { counts: number[]; sum: number; count: number };
 
-export function createHistogram(
+function createHistogram(
   name: string,
   opts: { help: string; buckets?: number[]; labelNames?: string[] },
 ): Histogram {
@@ -179,6 +179,9 @@ export function createHistogram(
     },
   };
 }
+
+/** @internal Exposed for unit tests only. */
+export const _internals = { createCounter, createGauge, createHistogram };
 
 // --- Registered metrics ---
 

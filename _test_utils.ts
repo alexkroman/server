@@ -4,7 +4,6 @@ import { importScopeKey, type ScopeKey } from "./scope_token.ts";
 import type { KvStore } from "./kv.ts";
 import type { ServerVectorStore } from "./vector.ts";
 import type { AgentMetadata, AgentSlot } from "./worker_pool.ts";
-import type { AgentConfig } from "@aai/sdk/internal-types";
 import { sortAndPaginate } from "@aai/sdk/kv";
 import { AgentMetadataSchema } from "./_schemas.ts";
 import { createOrchestrator } from "./orchestrator.ts";
@@ -37,10 +36,7 @@ export function createTestStore(): BundleStore {
       const manifest = {
         slug: bundle.slug,
         env: bundle.env,
-        transport: bundle.transport,
         "credential_hashes": bundle.credential_hashes,
-        config: bundle.config,
-        toolSchemas: bundle.toolSchemas,
       };
       objects.set(
         objectKey(bundle.slug, "manifest.json"),
@@ -106,26 +102,11 @@ export function createTestScopeKey(): Promise<ScopeKey> {
   return importScopeKey("test-secret-for-tests-only");
 }
 
-/** Create a minimal AgentConfig for tests. */
-export function makeConfig(overrides?: Partial<AgentConfig>): AgentConfig {
-  return {
-    name: "Test",
-    instructions: "Test",
-    greeting: "Hi",
-    voice: "",
-    ...overrides,
-  };
-}
-
 /** Create a minimal AgentSlot for tests. */
 export function makeSlot(overrides?: Partial<AgentSlot>): AgentSlot {
   return {
     slug: "test-agent",
-    transport: ["websocket"],
     keyHash: "test-key-hash",
-    config: makeConfig(),
-    name: "Test",
-    toolSchemas: [],
     ...overrides,
   };
 }
@@ -139,8 +120,6 @@ export function deployBody(
     worker: "console.log('w');",
     html:
       '<!DOCTYPE html><html><body><script>console.log("c");</script></body></html>',
-    config: makeConfig(),
-    toolSchemas: [],
     ...overrides,
   });
 }

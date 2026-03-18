@@ -31,23 +31,11 @@ export async function discoverSlot(
   return opts.slots.get(slug) ?? null;
 }
 
-/**
- * Resolves an agent slot that supports the WebSocket transport.
- */
-export async function resolveSlot(
-  slug: string,
-  opts: SlotLookup,
-): Promise<AgentSlot | null> {
-  const slot = await discoverSlot(slug, opts);
-  if (!slot?.transport.includes("websocket")) return null;
-  return slot;
-}
-
 async function requireSlot(
   slug: string,
   opts: SlotLookup,
 ): Promise<AgentSlot> {
-  const slot = await resolveSlot(slug, opts);
+  const slot = await discoverSlot(slug, opts);
   if (!slot) throw new HttpError(STATUS_CODE.NotFound, `Not found: ${slug}`);
   return slot;
 }
@@ -57,8 +45,8 @@ export async function handleAgentHealth(
   ctx: RouteContext,
   slug: string,
 ): Promise<Response> {
-  const slot = await requireSlot(slug, ctx.state);
-  return json({ status: "ok", slug, name: slot.name ?? slug });
+  await requireSlot(slug, ctx.state);
+  return json({ status: "ok", slug });
 }
 
 /** Handler for the agent landing page (`GET /:slug`). */

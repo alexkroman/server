@@ -31,10 +31,8 @@ orchestration logic.
 - `worker_pool.ts` — spawns agent code in sandboxed Deno Workers (all
   permissions false), idle eviction, hosts fetch proxy handler
 - `transport_websocket.ts` — WebSocket transport handler
-- `s2s.ts` — thin wrapper over `aai/s2s`, injects Deno logger + `ws`
 - `session_s2s.ts` — thin wrapper over `aai/session`, injects metrics
 - `ws_handler.ts` — thin wrapper over `aai/ws-handler`, injects logger
-- `system_prompt.ts` — re-exports `aai/system-prompt`
 - `bundle_store_tigris.ts` — S3 bundle storage
 - `kv.ts` — Managed Upstash Redis KV
 - `vector.ts` — Managed Upstash Vector store
