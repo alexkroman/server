@@ -7,7 +7,7 @@ RUN deno compile \
   --allow-all \
   --target x86_64-unknown-linux-gnu \
   --output /app/dist/server \
-  server/main.ts
+  main.ts
 
 FROM gcr.io/distroless/cc-debian12:nonroot
 
