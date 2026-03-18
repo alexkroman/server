@@ -1,7 +1,6 @@
 // Copyright 2025 the AAI authors. MIT license.
 import * as log from "@std/log";
 import { EnvSchema } from "./_schemas.ts";
-import type { AgentConfig, ToolSchema } from "@aai/sdk/internal-types";
 import type { BundleStore } from "./bundle_store_tigris.ts";
 import type { AgentMetadata } from "./_schemas.ts";
 import type { KvStore } from "./kv.ts";
@@ -19,14 +18,6 @@ const IDLE_MS = 5 * 60 * 1000;
 export type AgentSlot = {
   /** The agent's unique slug identifier. */
   slug: string;
-  /** Supported transport types for this agent. */
-  transport: readonly ("websocket")[];
-  /** Agent configuration extracted at build time. */
-  config: AgentConfig;
-  /** Human-readable agent name from the configuration. */
-  name: string;
-  /** Tool schemas extracted at build time. */
-  toolSchemas: ToolSchema[];
   /** Credential hash of the agent owner (for KV scoping). */
   keyHash: string;
   /** Active sandboxed worker running the agent. */
@@ -125,7 +116,6 @@ export function ensureAgent(
       resetIdleTimer(slot);
       log.info("Agent sandbox ready", {
         slug: slot.slug,
-        name: slot.name,
         durationMs: Math.round(performance.now() - t0),
       });
     },
@@ -158,11 +148,7 @@ export function registerSlot(
 
   slots.set(metadata.slug, {
     slug: metadata.slug,
-    transport: metadata.transport,
     keyHash: metadata.credential_hashes[0] ?? "",
-    config: metadata.config,
-    name: metadata.config.name,
-    toolSchemas: metadata.toolSchemas,
   });
   return true;
 }

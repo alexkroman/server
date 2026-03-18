@@ -7,10 +7,7 @@ import {
   assertStrictEquals,
 } from "@std/assert";
 import { hashApiKey, verifySlugOwner } from "./auth.ts";
-import { createTestStore, makeConfig } from "./_test_utils.ts";
-
-const TC = makeConfig();
-const TS: [] = [];
+import { createTestStore } from "./_test_utils.ts";
 
 Deno.test("hashApiKey produces consistent 64-char hex", async () => {
   const h1 = await hashApiKey("key");
@@ -34,12 +31,9 @@ Deno.test("verifySlugOwner returns owned for matching credential", async () => {
   await store.putAgent({
     slug: "my-agent",
     env: {},
-    transport: ["websocket"],
     worker: "w",
     html: "<html></html>",
     credential_hashes: [hash],
-    config: TC,
-    toolSchemas: TS,
   });
   const result = await verifySlugOwner("key1", { slug: "my-agent", store });
   assertEquals(result.status, "owned");
@@ -52,12 +46,9 @@ Deno.test("verifySlugOwner returns forbidden for different credential", async ()
   await store.putAgent({
     slug: "my-agent",
     env: {},
-    transport: ["websocket"],
     worker: "w",
     html: "<html></html>",
     credential_hashes: [hash],
-    config: TC,
-    toolSchemas: TS,
   });
   const result = await verifySlugOwner("key2", { slug: "my-agent", store });
   assertEquals(result.status, "forbidden");
@@ -70,12 +61,9 @@ Deno.test("verifySlugOwner allows multiple credential hashes", async () => {
   await store.putAgent({
     slug: "my-agent",
     env: {},
-    transport: ["websocket"],
     worker: "w",
     html: "<html></html>",
     credential_hashes: [hash1, hash2],
-    config: TC,
-    toolSchemas: TS,
   });
 
   const r1 = await verifySlugOwner("key1", { slug: "my-agent", store });
@@ -93,12 +81,9 @@ Deno.test("verifySlugOwner rejects when credential_hashes is empty", async () =>
   await store.putAgent({
     slug: "my-agent",
     env: {},
-    transport: ["websocket"],
     worker: "w",
     html: "<html></html>",
     credential_hashes: [],
-    config: TC,
-    toolSchemas: TS,
   });
   const result = await verifySlugOwner("any-key", { slug: "my-agent", store });
   assertEquals(result.status, "forbidden");

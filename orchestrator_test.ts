@@ -8,7 +8,6 @@ import {
   createTestOrchestrator,
   deployBody,
   DUMMY_INFO,
-  makeConfig,
 } from "./_test_utils.ts";
 import { MockWebSocket } from "@aai/sdk/testing";
 
@@ -77,12 +76,9 @@ Deno.test("deploy rejects different owner for claimed slug", async () => {
   await store.putAgent({
     slug: "my-agent",
     env: {},
-    transport: ["websocket"],
     worker: "w",
     html: "<html></html>",
     credential_hashes: [await hashApiKey("key1")],
-    config: makeConfig(),
-    toolSchemas: [],
   });
 
   const res = await handler(

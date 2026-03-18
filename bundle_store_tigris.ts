@@ -16,12 +16,9 @@ export type BundleStore = {
   putAgent(bundle: {
     slug: string;
     env: Record<string, string>;
-    transport: readonly ("websocket")[];
     worker: string;
     html: string;
     credential_hashes: string[];
-    config: import("@aai/sdk/internal-types").AgentConfig;
-    toolSchemas: import("@aai/sdk/internal-types").ToolSchema[];
   }): Promise<void>;
   getManifest(slug: string): Promise<AgentMetadata | null>;
   getFile(slug: string, file: FileKey): Promise<string | null>;
@@ -162,10 +159,7 @@ export function createBundleStore(
           env: bundle.env,
           slug: bundle.slug,
         }),
-        transport: bundle.transport,
         "credential_hashes": bundle.credential_hashes,
-        config: bundle.config,
-        toolSchemas: bundle.toolSchemas,
         envEncrypted: true,
       };
       await put(

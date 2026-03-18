@@ -1,12 +1,8 @@
 // Copyright 2025 the AAI authors. MIT license.
 import { assert, assertStrictEquals, assertStringIncludes } from "@std/assert";
-import {
-  createCounter,
-  createGauge,
-  createHistogram,
-  serialize,
-  serializeForAgent,
-} from "./metrics.ts";
+import { _internals, serialize, serializeForAgent } from "./metrics.ts";
+
+const { createCounter, createGauge, createHistogram } = _internals;
 
 Deno.test("counter without labels", () => {
   const c = createCounter("test_total", { help: "A test counter" });

@@ -47,30 +47,21 @@ export async function handleDeploy(
     delete existing.initializing;
   }
 
-  const transport = body.transport ?? ["websocket"];
-
   await state.store.putAgent({
     slug,
     env,
-    transport,
     worker: body.worker,
     html: body.html,
     credential_hashes: [keyHash],
-    config: body.config,
-    toolSchemas: body.toolSchemas,
   });
 
   const slot: AgentSlot = {
     slug,
-    transport,
     keyHash,
-    config: body.config,
-    name: body.config.name,
-    toolSchemas: body.toolSchemas,
   };
   state.slots.set(slug, slot);
 
-  log.info("Deploy received", { slug, transport });
+  log.info("Deploy received", { slug });
 
   return json({ ok: true, message: `Deployed ${slug}` });
 }
