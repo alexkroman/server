@@ -145,19 +145,36 @@ export async function createSandbox(
     }
   });
 
-  // Scoped vector search
-  endpoint.handle("host.vectorSearch", async (args) => {
-    const [query, topK] = args as [string, number];
-    if (!vectorStore) return "No vector store configured.";
-    const results = await vectorStore.query(scope, query, topK);
-    if (results.length === 0) return "No relevant results found.";
-    return JSON.stringify(
-      results.map((r) => ({
-        score: r.score,
-        text: r.data,
-        metadata: r.metadata,
-      })),
-    );
+  // Scoped vector operations
+  endpoint.handle("host.vector", async (args) => {
+    const [op, ...rest] = args as [string, ...unknown[]];
+    if (!vectorStore) throw new Error("Vector store not configured");
+    switch (op) {
+      case "upsert": {
+        const [id, data, metadata] = rest as [
+          string,
+          string,
+          Record<string, unknown> | undefined,
+        ];
+        await vectorStore.upsert(scope, id, data, metadata);
+        return null;
+      }
+      case "query": {
+        const [text, topK, filter] = rest as [
+          string,
+          number | undefined,
+          string | undefined,
+        ];
+        return await vectorStore.query(scope, text, topK, filter);
+      }
+      case "remove": {
+        const [ids] = rest as [string[]];
+        await vectorStore.remove(scope, ids);
+        return null;
+      }
+      default:
+        throw new Error(`Unknown vector op: ${op}`);
+    }
   });
 
   // S2S WebSocket creation — receives transferred port and bridges
