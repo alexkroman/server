@@ -5,6 +5,7 @@ COPY . .
 
 RUN deno compile \
   --allow-all \
+  --unstable-worker-options \
   --target x86_64-unknown-linux-gnu \
   --output /app/dist/server \
   main.ts
