@@ -52,11 +52,3 @@ export function html(body: string, status = STATUS_CODE.OK): Response {
     headers: { "Content-Type": "text/html; charset=utf-8" },
   });
 }
-
-/** Create a plain text response. */
-export function text(body: string, status = STATUS_CODE.OK): Response {
-  return new Response(body, {
-    status,
-    headers: { "Content-Type": "text/plain; charset=utf-8" },
-  });
-}

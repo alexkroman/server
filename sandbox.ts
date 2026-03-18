@@ -17,11 +17,12 @@ import {
   CapnwebEndpoint,
   type CapnwebPort,
 } from "@aai/sdk/capnweb";
+import WebSocket from "ws";
+import type { S2sWebSocket } from "@aai/sdk/s2s";
 import { assertPublicUrl } from "./builtin_tools.ts";
 import type { KvStore } from "./kv.ts";
 import type { ServerVectorStore } from "./vector.ts";
 import type { AgentScope } from "./scope_token.ts";
-import { createWsFactory } from "./s2s.ts";
 
 /** Options for creating a sandboxed agent worker. */
 export type SandboxOptions = {
@@ -74,7 +75,8 @@ export async function createSandbox(
     worker as unknown as CapnwebPort,
   );
 
-  const wsFactory = createWsFactory();
+  const wsFactory = (url: string, opts: { headers: Record<string, string> }) =>
+    new WebSocket(url, { headers: opts.headers }) as unknown as S2sWebSocket;
 
   // ─── Host-side RPC handlers ──────────────────────────────────────────
 
