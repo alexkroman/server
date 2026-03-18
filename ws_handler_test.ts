@@ -80,8 +80,9 @@ const TEST_CONFIG: ReadyConfig = {
   ttsSampleRate: 24_000,
 };
 
-function setup() {
+function setup(setupOpts?: { readyState?: number }) {
   const ws = new MockWebSocket();
+  if (setupOpts?.readyState !== undefined) ws.readyState = setupOpts.readyState;
   const sessions = new Map<string, Session>();
   const mockSession = createMockSession();
   const openCalls: number[] = [];
@@ -217,8 +218,8 @@ Deno.test("wireSessionSocket", async (t) => {
   });
 
   await t.step("ignores messages before session is created", () => {
-    const { ws, mockSession } = setup();
-    // Don't dispatch "open" — session is null
+    // Set readyState to CONNECTING so wireSessionSocket doesn't auto-open
+    const { ws, mockSession } = setup({ readyState: 0 });
 
     ws.dispatchMessage(JSON.stringify({ type: "audio_ready" }));
     assertEquals(mockSession.calls.length, 0);

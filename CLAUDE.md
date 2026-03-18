@@ -59,5 +59,5 @@ to private/internal addresses (SSRF protection).
   isolation)
 - **Testing**: `Deno.test()`. Test files are co-located: `foo.ts` →
   `foo_test.ts`
-- **Framework dependency**: Import from `@aai/sdk/*` (mapped to `npm:aai@^0.3/*`
-  in deno.json imports)
+- **Framework dependency**: Import from `@aai/sdk/*` (mapped to
+  `npm:@alexkroman1/aai@^0.5/*` in deno.json imports)

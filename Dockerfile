@@ -5,11 +5,9 @@ COPY . .
 
 RUN deno compile \
   --allow-all \
-  --unstable-worker-options \
-  --include _sandbox_worker.ts \
   --target x86_64-unknown-linux-gnu \
   --output /app/dist/server \
-  main.ts
+  server/main.ts
 
 FROM gcr.io/distroless/cc-debian12:nonroot
 
