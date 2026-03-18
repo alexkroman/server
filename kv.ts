@@ -82,10 +82,14 @@ export function createKvStore(url: string, token: string): KvStore {
       const limited = options?.limit && options.limit > 0
         ? sorted.slice(0, options.limit)
         : sorted;
+      const values = await Promise.all(
+        limited.map((rk) => redis.get<string>(rk)),
+      );
       const entries: KvListEntry[] = [];
-      for (const rk of limited) {
-        const val = await redis.get<string>(rk);
-        if (val !== null && val !== undefined) {
+      for (let i = 0; i < limited.length; i++) {
+        const val = values[i];
+        const rk = limited[i];
+        if (val !== null && val !== undefined && rk !== undefined) {
           const key = rk.slice(prefix.length);
           try {
             entries.push({ key, value: JSON.parse(val as string) });
