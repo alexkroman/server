@@ -74,7 +74,6 @@ class MockWebSocket {
 }
 
 const TEST_CONFIG: ReadyConfig = {
-  protocolVersion: 1,
   audioFormat: "pcm16",
   sampleRate: 16_000,
   ttsSampleRate: 24_000,
@@ -112,7 +111,6 @@ Deno.test("wireSessionSocket", async (t) => {
     assertEquals(ws.sent.length, 1);
     const config = JSON.parse(ws.sent[0] as string);
     assertEquals(config.type, "config");
-    assertEquals(config.protocolVersion, 1);
     assertEquals(config.audioFormat, "pcm16");
 
     // Session should be registered and started
