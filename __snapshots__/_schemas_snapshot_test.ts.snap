@@ -5,6 +5,15 @@ snapshot[`DeployBodySchema snapshot 1`] = `
   "\$schema": "https://json-schema.org/draft/2020-12/schema",
   additionalProperties: false,
   properties: {
+    clientFiles: {
+      additionalProperties: {
+        type: "string",
+      },
+      propertyNames: {
+        type: "string",
+      },
+      type: "object",
+    },
     env: {
       additionalProperties: {
         type: "string",
@@ -14,11 +23,6 @@ snapshot[`DeployBodySchema snapshot 1`] = `
       },
       type: "object",
     },
-    html: {
-      maxLength: 10000000,
-      minLength: 1,
-      type: "string",
-    },
     worker: {
       maxLength: 10000000,
       minLength: 1,
@@ -27,7 +31,7 @@ snapshot[`DeployBodySchema snapshot 1`] = `
   },
   required: [
     "worker",
-    "html",
+    "clientFiles",
   ],
   type: "object",
 }

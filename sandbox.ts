@@ -30,8 +30,6 @@ export type SandboxOptions = {
   workerCode: string;
   /** Environment variables to pass to the worker. */
   env: Record<string, string>;
-  /** HTML to serve at the agent's landing page. */
-  clientHtml?: string | undefined;
   /** Server KV store for scoped operations. */
   kvStore: KvStore;
   /** Agent scope for KV/vector isolation. */
@@ -60,7 +58,7 @@ export type Sandbox = {
 export async function createSandbox(
   opts: SandboxOptions,
 ): Promise<Sandbox> {
-  const { workerCode, env, clientHtml, kvStore, scope, vectorStore } = opts;
+  const { workerCode, env, kvStore, scope, vectorStore } = opts;
 
   const dataUrl = `data:application/javascript;base64,${
     encodeBase64(workerCode)
@@ -193,7 +191,7 @@ export async function createSandbox(
 
   // ─── Initialize worker ───────────────────────────────────────────────
 
-  await endpoint.call("worker.init", [env, clientHtml]);
+  await endpoint.call("worker.init", [env]);
   log.info("Sandbox initialized", { slug: scope.slug });
 
   return {

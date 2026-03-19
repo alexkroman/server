@@ -87,10 +87,8 @@ Deno.test("sandbox.terminate does not throw", async () => {
   sandbox.terminate();
 });
 
-Deno.test("createSandbox passes clientHtml option", async () => {
-  const sandbox = await createSandbox(
-    makeOpts({ clientHtml: "<html>test</html>" }),
-  );
+Deno.test("createSandbox works without clientHtml", async () => {
+  const sandbox = await createSandbox(makeOpts());
   try {
     assert(sandbox);
   } finally {

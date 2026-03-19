@@ -32,7 +32,7 @@ Deno.test("verifySlugOwner returns owned for matching credential", async () => {
     slug: "my-agent",
     env: {},
     worker: "w",
-    html: "<html></html>",
+    clientFiles: { "index.html": "<html></html>" },
     credential_hashes: [hash],
   });
   const result = await verifySlugOwner("key1", { slug: "my-agent", store });
@@ -47,7 +47,7 @@ Deno.test("verifySlugOwner returns forbidden for different credential", async ()
     slug: "my-agent",
     env: {},
     worker: "w",
-    html: "<html></html>",
+    clientFiles: { "index.html": "<html></html>" },
     credential_hashes: [hash],
   });
   const result = await verifySlugOwner("key2", { slug: "my-agent", store });
@@ -62,7 +62,7 @@ Deno.test("verifySlugOwner allows multiple credential hashes", async () => {
     slug: "my-agent",
     env: {},
     worker: "w",
-    html: "<html></html>",
+    clientFiles: { "index.html": "<html></html>" },
     credential_hashes: [hash1, hash2],
   });
 
@@ -82,7 +82,7 @@ Deno.test("verifySlugOwner rejects when credential_hashes is empty", async () =>
     slug: "my-agent",
     env: {},
     worker: "w",
-    html: "<html></html>",
+    clientFiles: { "index.html": "<html></html>" },
     credential_hashes: [],
   });
   const result = await verifySlugOwner("any-key", { slug: "my-agent", store });

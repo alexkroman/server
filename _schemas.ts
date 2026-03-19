@@ -3,16 +3,21 @@
 // These validate untrusted input at HTTP/WebSocket boundaries.
 
 import { z } from "zod";
-import type { DeployBody } from "@aai/sdk/internal-types";
-
 import type { KvRequest } from "@aai/sdk/protocol";
 
+/** Deploy request body sent by the CLI. */
+export type DeployBody = {
+  env?: Record<string, string> | undefined;
+  worker: string;
+  clientFiles: Record<string, string>;
+};
+
 /** Zod schema for validating the deploy request body. */
-export const DeployBodySchema = z.object({
+export const DeployBodySchema: z.ZodType<DeployBody> = z.object({
   env: z.record(z.string(), z.string()).optional(),
   worker: z.string().min(1).max(10_000_000),
-  html: z.string().min(1).max(10_000_000),
-}) as unknown as z.ZodType<DeployBody>;
+  clientFiles: z.record(z.string(), z.string()),
+}) as z.ZodType<DeployBody>;
 
 /** Zod schema for validating agent environment variables (requires `ASSEMBLYAI_API_KEY`). */
 export const EnvSchema = z.object({

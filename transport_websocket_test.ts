@@ -30,7 +30,7 @@ Deno.test("discoverSlot lazy-loads from store", async () => {
     slug: "stored-agent",
     env: VALID_ENV,
     worker: "console.log('w');",
-    html: "<html></html>",
+    clientFiles: { "index.html": "<html></html>" },
     credential_hashes: ["hash1"],
   });
   const result = await discoverSlot("stored-agent", { slots, store });
