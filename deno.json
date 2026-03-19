@@ -47,6 +47,7 @@
     "@upstash/vector": "npm:@upstash/vector@^1",
     "mdream": "npm:mdream@^0",
     "assemblyai": "npm:assemblyai@^4",
+    "hono": "npm:hono@^4",
     "ws": "npm:ws@^8",
     "markdownlint-cli": "npm:markdownlint-cli@^0.44.0"
   },

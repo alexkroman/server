@@ -26,14 +26,6 @@ export type AppState = {
   vectorStore?: ServerVectorStore | undefined;
 };
 
-/** Context passed to route handler functions. */
-export type RouteContext = {
-  req: Request;
-  info: Deno.ServeHandlerInfo;
-  params: Record<string, string>;
-  state: AppState;
-};
-
 /** Create a JSON response. */
 export function json(
   data: unknown,

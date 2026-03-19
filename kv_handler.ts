@@ -1,7 +1,7 @@
 // Copyright 2025 the AAI authors. MIT license.
 import * as log from "@std/log";
 import { STATUS_CODE } from "@std/http/status";
-import { HttpError, json, type RouteContext } from "./context.ts";
+import { type AppState, HttpError, json } from "./context.ts";
 import { type KvHttpRequest, KvHttpRequestSchema } from "./_schemas.ts";
 import type { AgentScope } from "./scope_token.ts";
 
@@ -12,13 +12,14 @@ import type { AgentScope } from "./scope_token.ts";
  * KV store, scoped to the requesting agent.
  */
 export async function handleKv(
-  ctx: RouteContext,
+  req: Request,
+  state: AppState,
   scope: AgentScope,
 ): Promise<Response> {
-  const { kvStore } = ctx.state;
+  const { kvStore } = state;
   let msg: KvHttpRequest;
   try {
-    msg = KvHttpRequestSchema.parse(await ctx.req.json());
+    msg = KvHttpRequestSchema.parse(await req.json());
   } catch {
     throw new HttpError(STATUS_CODE.BadRequest, "Invalid request");
   }

@@ -12,10 +12,10 @@ Deno.test("orchestrator adds Cross-Origin-Isolation headers", async () => {
   using store = createTestStore();
   const scopeKey = await createTestScopeKey();
   const kvStore = createTestKvStore();
-  const handler = createOrchestrator({ store, scopeKey, kvStore });
-  const res = await handler(
+  const app = createOrchestrator({ store, scopeKey, kvStore });
+  const res = await app.fetch(
     new Request("http://localhost/health"),
-    DUMMY_INFO,
+    { info: DUMMY_INFO },
   );
   assertEquals(res.headers.get("Cross-Origin-Opener-Policy"), "same-origin");
   assertEquals(
@@ -28,10 +28,10 @@ Deno.test("orchestrator returns 400 on deploy without auth", async () => {
   using store = createTestStore();
   const scopeKey = await createTestScopeKey();
   const kvStore = createTestKvStore();
-  const handler = createOrchestrator({ store, scopeKey, kvStore });
-  const res = await handler(
+  const app = createOrchestrator({ store, scopeKey, kvStore });
+  const res = await app.fetch(
     new Request("http://localhost/my-agent/deploy", { method: "POST" }),
-    DUMMY_INFO,
+    { info: DUMMY_INFO },
   );
   assertEquals(res.status, 401);
 });

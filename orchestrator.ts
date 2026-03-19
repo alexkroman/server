@@ -1,8 +1,9 @@
 // Copyright 2025 the AAI authors. MIT license.
 import * as log from "@std/log";
-import { type Route, route } from "@std/http/unstable-route";
+import { Hono } from "hono";
+import { cors } from "hono/cors";
 import { STATUS_CODE } from "@std/http/status";
-import { type AppState, HttpError, json } from "./context.ts";
+import { type AppState, HttpError } from "./context.ts";
 import { handleDeploy } from "./deploy.ts";
 import {
   handleSecretDelete,
@@ -12,6 +13,7 @@ import {
 import {
   handleAgentHealth,
   handleAgentPage,
+  handleClientAsset,
   handleWebSocket,
 } from "./transport_websocket.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
@@ -22,8 +24,6 @@ import type { ServerVectorStore } from "./vector.ts";
 import type { ScopeKey } from "./scope_token.ts";
 import { serialize as serializeMetrics, serializeForAgent } from "./metrics.ts";
 import {
-  applyGlobalHeaders,
-  handlePreflight,
   requireInternal,
   requireOwner,
   requireScopeToken,
@@ -31,29 +31,9 @@ import {
   validateSlug,
 } from "./middleware.ts";
 
-/** Extract named groups from a URLPatternResult as a flat record. */
-function params(match: URLPatternResult): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const [k, v] of Object.entries(match.pathname.groups)) {
-    if (v !== undefined) out[k] = v;
-  }
-  return out;
-}
-
-/** Build a RouteContext from a handler's arguments. */
-function ctx(
-  req: Request,
-  match: URLPatternResult,
-  info: Deno.ServeHandlerInfo | undefined,
-  state: AppState,
-) {
-  return {
-    req,
-    info: info!,
-    params: params(match),
-    state,
-  };
-}
+type Env = {
+  Bindings: { info: Deno.ServeHandlerInfo };
+};
 
 /**
  * Creates the main HTTP request handler for the orchestrator server.
@@ -66,7 +46,7 @@ export function createOrchestrator(opts: {
   kvStore: KvStore;
   vectorStore?: ServerVectorStore | undefined;
   scopeKey: ScopeKey;
-}): Deno.ServeHandler {
+}): Hono<Env> {
   const state: AppState = {
     slots: new Map(),
     sessions: new Map(),
@@ -76,175 +56,123 @@ export function createOrchestrator(opts: {
     scopeKey: opts.scopeKey,
   };
 
-  const routes: Route[] = [
-    // --- Public routes ---
-    {
-      pattern: new URLPattern({ pathname: "/health" }),
-      method: "GET",
-      handler: () => json({ status: "ok" }),
-    },
-    {
-      pattern: new URLPattern({ pathname: "/metrics" }),
-      method: "GET",
-      handler: (req, _match, info) => {
-        requireInternal(req, info!);
-        return new Response(serializeMetrics(), {
-          headers: { "Content-Type": "text/plain; version=0.0.4" },
-        });
-      },
-    },
+  const app = new Hono<Env>();
 
-    // --- Agent page (trailing slash is canonical for relative URL resolution) ---
-    {
-      pattern: new URLPattern({ pathname: "/:slug" }),
-      method: "GET",
-      handler: (req) => {
-        const url = new URL(req.url);
-        url.pathname += "/";
-        return Response.redirect(url.toString(), STATUS_CODE.MovedPermanently);
-      },
-    },
+  // --- Global middleware ---
+  app.use("*", cors());
+  app.use("*", async (c, next) => {
+    await next();
+    c.header("Cross-Origin-Opener-Policy", "same-origin");
+    c.header("Cross-Origin-Embedder-Policy", "credentialless");
+  });
 
-    // --- Agent routes ---
-    {
-      pattern: new URLPattern({ pathname: "/:slug/deploy" }),
-      method: "POST",
-      handler: async (req, match, info) => {
-        const c = ctx(req, match, info, state);
-        const slug = validateSlug(c.params);
-        const keyHash = await requireOwner(req, {
-          slug,
-          store: state.store,
-        });
-        return handleDeploy(c, { slug, keyHash });
-      },
-    },
-    // --- Secret management (like `wrangler secret`) ---
-    {
-      pattern: new URLPattern({ pathname: "/:slug/secret" }),
-      method: "GET",
-      handler: async (req, match, info) => {
-        const c = ctx(req, match, info, state);
-        const slug = validateSlug(c.params);
-        await requireOwner(req, { slug, store: state.store });
-        return handleSecretList(c, slug);
-      },
-    },
-    {
-      pattern: new URLPattern({ pathname: "/:slug/secret" }),
-      method: "PUT",
-      handler: async (req, match, info) => {
-        const c = ctx(req, match, info, state);
-        const slug = validateSlug(c.params);
-        await requireOwner(req, { slug, store: state.store });
-        return handleSecretSet(c, slug);
-      },
-    },
-    {
-      pattern: new URLPattern({ pathname: "/:slug/secret/:key" }),
-      method: "DELETE",
-      handler: async (req, match, info) => {
-        const c = ctx(req, match, info, state);
-        const slug = validateSlug(c.params);
-        await requireOwner(req, { slug, store: state.store });
-        const key = c.params.key!;
-        return handleSecretDelete(c, { slug, key });
-      },
-    },
-    {
-      pattern: new URLPattern({ pathname: "/:slug/kv" }),
-      method: "POST",
-      handler: async (req, match, info) => {
-        requireInternal(req, info!);
-        const c = ctx(req, match, info, state);
-        validateSlug(c.params);
-        const scope = await requireScopeToken(req, state.scopeKey);
-        return handleKv(c, scope);
-      },
-    },
-    {
-      pattern: new URLPattern({ pathname: "/:slug/vector" }),
-      method: "POST",
-      handler: async (req, match, info) => {
-        const c = ctx(req, match, info, state);
-        const slug = validateSlug(c.params);
-        const keyHash = await requireOwner(req, {
-          slug,
-          store: state.store,
-        });
-        return handleVector(c, { keyHash, slug });
-      },
-    },
-    {
-      pattern: new URLPattern({ pathname: "/:slug/metrics" }),
-      method: "GET",
-      handler: async (req, match, info) => {
-        const c = ctx(req, match, info, state);
-        const slug = validateSlug(c.params);
-        await requireOwner(req, { slug, store: state.store });
-        return new Response(serializeForAgent(slug), {
-          headers: { "Content-Type": "text/plain; version=0.0.4" },
-        });
-      },
-    },
-    {
-      pattern: new URLPattern({ pathname: "/:slug/health" }),
-      method: "GET",
-      handler: (req, match, info) => {
-        const c = ctx(req, match, info, state);
-        const slug = validateSlug(c.params);
-        return handleAgentHealth(c, slug);
-      },
-    },
-    {
-      pattern: new URLPattern({ pathname: "/:slug/websocket" }),
-      handler: (req, match, info) => {
-        requireUpgrade(req);
-        const c = ctx(req, match, info, state);
-        const slug = validateSlug(c.params);
-        return handleWebSocket(c, slug);
-      },
-    },
-    // --- Agent page (served at trailing-slash so relative URLs resolve correctly) ---
-    {
-      pattern: new URLPattern({ pathname: "/:slug/" }),
-      method: "GET",
-      handler: (req, match, info) => {
-        const c = ctx(req, match, info, state);
-        const slug = validateSlug(c.params);
-        return handleAgentPage(c, slug);
-      },
-    },
-  ];
-
-  const handler = route(
-    routes,
-    () => json({ error: "Not found" }, { status: STATUS_CODE.NotFound }),
-  );
-
-  return async (req: Request, info: Deno.ServeHandlerInfo) => {
-    if (req.method === "OPTIONS") {
-      return handlePreflight();
+  // --- Global error handler ---
+  app.onError((err, c) => {
+    if (err instanceof HttpError) {
+      return c.json({ error: err.message }, err.status as 400);
     }
+    log.error("Unhandled error", {
+      error: err instanceof Error ? err.message : String(err),
+      path: new URL(c.req.url).pathname,
+    });
+    return c.json(
+      { error: "Internal server error" },
+      STATUS_CODE.InternalServerError as 500,
+    );
+  });
 
-    try {
-      const res = await handler(req, info);
-      return applyGlobalHeaders(res);
-    } catch (err) {
-      if (err instanceof HttpError) {
-        return applyGlobalHeaders(
-          json({ error: err.message }, { status: err.status }),
-        );
-      }
-      log.error("Unhandled error", {
-        error: err instanceof Error ? err.message : String(err),
-        path: new URL(req.url).pathname,
-      });
-      return applyGlobalHeaders(
-        json({ error: "Internal server error" }, {
-          status: STATUS_CODE.InternalServerError,
-        }),
-      );
-    }
-  };
+  // --- Public routes ---
+  app.get("/health", (c) => c.json({ status: "ok" }));
+
+  app.get("/metrics", (c) => {
+    requireInternal(c.req.raw, c.env.info);
+    return new Response(serializeMetrics(), {
+      headers: { "Content-Type": "text/plain; version=0.0.4" },
+    });
+  });
+
+  // --- Agent page redirect (bare slug → trailing slash) ---
+  app.get("/:slug{[a-z0-9][a-z0-9_-]*[a-z0-9]}", (c) => {
+    // Only match if there's no sub-path (handled by more specific routes)
+    const url = new URL(c.req.url);
+    url.pathname += "/";
+    return c.redirect(url.toString(), STATUS_CODE.MovedPermanently);
+  });
+
+  // --- Agent routes ---
+  app.post("/:slug/deploy", async (c) => {
+    const slug = validateSlug(c.req.param("slug"));
+    const keyHash = await requireOwner(c.req.raw, {
+      slug,
+      store: state.store,
+    });
+    return handleDeploy(c.req.raw, state, { slug, keyHash });
+  });
+
+  app.get("/:slug/secret", async (c) => {
+    const slug = validateSlug(c.req.param("slug"));
+    await requireOwner(c.req.raw, { slug, store: state.store });
+    return handleSecretList(state, slug);
+  });
+
+  app.put("/:slug/secret", async (c) => {
+    const slug = validateSlug(c.req.param("slug"));
+    await requireOwner(c.req.raw, { slug, store: state.store });
+    return handleSecretSet(c.req.raw, state, slug);
+  });
+
+  app.delete("/:slug/secret/:key", async (c) => {
+    const slug = validateSlug(c.req.param("slug"));
+    await requireOwner(c.req.raw, { slug, store: state.store });
+    const key = c.req.param("key");
+    return handleSecretDelete(state, { slug, key });
+  });
+
+  app.post("/:slug/kv", async (c) => {
+    requireInternal(c.req.raw, c.env.info);
+    validateSlug(c.req.param("slug"));
+    const scope = await requireScopeToken(c.req.raw, state.scopeKey);
+    return handleKv(c.req.raw, state, scope);
+  });
+
+  app.post("/:slug/vector", async (c) => {
+    const slug = validateSlug(c.req.param("slug"));
+    const keyHash = await requireOwner(c.req.raw, {
+      slug,
+      store: state.store,
+    });
+    return handleVector(c.req.raw, state, { keyHash, slug });
+  });
+
+  app.get("/:slug/metrics", async (c) => {
+    const slug = validateSlug(c.req.param("slug"));
+    await requireOwner(c.req.raw, { slug, store: state.store });
+    return new Response(serializeForAgent(slug), {
+      headers: { "Content-Type": "text/plain; version=0.0.4" },
+    });
+  });
+
+  app.get("/:slug/health", (c) => {
+    const slug = validateSlug(c.req.param("slug"));
+    return handleAgentHealth(state, slug);
+  });
+
+  app.get("/:slug/websocket", (c) => {
+    requireUpgrade(c.req.raw);
+    const slug = validateSlug(c.req.param("slug"));
+    return handleWebSocket(c.req.raw, state, slug);
+  });
+
+  app.get("/:slug/assets/:path{.+}", (c) => {
+    const slug = validateSlug(c.req.param("slug"));
+    const assetPath = c.req.param("path");
+    return handleClientAsset(state, slug, assetPath);
+  });
+
+  app.get("/:slug/", (c) => {
+    const slug = validateSlug(c.req.param("slug"));
+    return handleAgentPage(state, slug);
+  });
+
+  return app;
 }

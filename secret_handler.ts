@@ -1,17 +1,17 @@
 // Copyright 2025 the AAI authors. MIT license.
 import * as log from "@std/log";
 import { STATUS_CODE } from "@std/http/status";
-import { json, type RouteContext } from "./context.ts";
+import { type AppState, json } from "./context.ts";
 import { HttpError } from "./context.ts";
 
 /**
  * GET /:slug/secret — list secret names (values masked).
  */
 export async function handleSecretList(
-  ctx: RouteContext,
+  state: AppState,
   slug: string,
 ): Promise<Response> {
-  const env = await ctx.state.store.getEnv(slug);
+  const env = await state.store.getEnv(slug);
   if (!env) {
     throw new HttpError(STATUS_CODE.NotFound, `Agent ${slug} not found`);
   }
@@ -25,10 +25,11 @@ export async function handleSecretList(
  * Body: { "KEY": "value", "KEY2": "value2" }
  */
 export async function handleSecretSet(
-  ctx: RouteContext,
+  req: Request,
+  state: AppState,
   slug: string,
 ): Promise<Response> {
-  const updates = await ctx.req.json();
+  const updates = await req.json();
   if (
     typeof updates !== "object" || updates === null || Array.isArray(updates)
   ) {
@@ -48,12 +49,12 @@ export async function handleSecretSet(
   }
 
   // Merge with existing env
-  const existing = await ctx.state.store.getEnv(slug) ?? {};
+  const existing = await state.store.getEnv(slug) ?? {};
   const merged = { ...existing, ...updates };
-  await ctx.state.store.putEnv(slug, merged);
+  await state.store.putEnv(slug, merged);
 
   // Clear executor so it restarts with fresh env from store
-  const slot = ctx.state.slots.get(slug);
+  const slot = state.slots.get(slug);
   if (slot?.sandbox) {
     log.info("Restarting sandbox for secret update", { slug });
     slot.sandbox.terminate();
@@ -69,20 +70,20 @@ export async function handleSecretSet(
  * DELETE /:slug/secret/:key — remove a single secret.
  */
 export async function handleSecretDelete(
-  ctx: RouteContext,
+  state: AppState,
   opts: { slug: string; key: string },
 ): Promise<Response> {
   const { slug, key } = opts;
-  const existing = await ctx.state.store.getEnv(slug);
+  const existing = await state.store.getEnv(slug);
   if (!existing) {
     throw new HttpError(STATUS_CODE.NotFound, `Agent ${slug} not found`);
   }
 
   delete existing[key];
-  await ctx.state.store.putEnv(slug, existing);
+  await state.store.putEnv(slug, existing);
 
   // Clear executor so it restarts with fresh env from store
-  const slot = ctx.state.slots.get(slug);
+  const slot = state.slots.get(slug);
   if (slot?.sandbox) {
     log.info("Restarting sandbox for secret delete", { slug });
     slot.sandbox.terminate();
