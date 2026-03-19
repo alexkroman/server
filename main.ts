@@ -12,6 +12,17 @@ try {
   await load({ export: true });
 } catch { /* .env not found — fine */ }
 
+log.setup({
+  handlers: {
+    console: new log.ConsoleHandler(
+      (Deno.env.get("LOG_LEVEL")?.toUpperCase() as log.LevelName) ?? "INFO",
+    ),
+  },
+  loggers: {
+    default: { level: "DEBUG", handlers: ["console"] },
+  },
+});
+
 function requireEnv(name: string): string {
   const value = Deno.env.get(name);
   if (!value) {
@@ -63,7 +74,7 @@ if (isDev) {
   scopeKey = await importScopeKey(kvSecret);
 }
 
-const handler = createOrchestrator({ store, kvStore, vectorStore, scopeKey });
+const app = createOrchestrator({ store, kvStore, vectorStore, scopeKey });
 
 const port = parseInt(Deno.env.get("PORT") ?? "3100");
 const abort = new AbortController();
@@ -74,7 +85,7 @@ Deno.addSignalListener("SIGTERM", () => {
 
 const server = Deno.serve(
   { port, hostname: "0.0.0.0", signal: abort.signal, onListen: () => {} },
-  handler,
+  (req, info) => app.fetch(req, { info }),
 );
 
 log.info(`http://localhost:${port}`);

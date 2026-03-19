@@ -1,10 +1,9 @@
 // Copyright 2025 the AAI authors. MIT license.
 import * as log from "@std/log";
 import { STATUS_CODE } from "@std/http/status";
-import { json, type RouteContext } from "./context.ts";
-import type { DeployBody } from "@aai/sdk/internal-types";
+import { type AppState, json } from "./context.ts";
 import { HttpError } from "./context.ts";
-import { DeployBodySchema, EnvSchema } from "./_schemas.ts";
+import { type DeployBody, DeployBodySchema, EnvSchema } from "./_schemas.ts";
 import type { AgentSlot } from "./worker_pool.ts";
 
 /**
@@ -15,14 +14,14 @@ import type { AgentSlot } from "./worker_pool.ts";
  * stored env. If not provided, the existing stored env is preserved.
  */
 export async function handleDeploy(
-  ctx: RouteContext,
+  req: Request,
+  state: AppState,
   opts: { slug: string; keyHash: string },
 ): Promise<Response> {
-  const { state } = ctx;
   const { slug, keyHash } = opts;
   let body: DeployBody;
   try {
-    body = DeployBodySchema.parse(await ctx.req.json());
+    body = DeployBodySchema.parse(await req.json());
   } catch {
     throw new HttpError(STATUS_CODE.BadRequest, "Invalid deploy body");
   }
@@ -51,7 +50,7 @@ export async function handleDeploy(
     slug,
     env,
     worker: body.worker,
-    html: body.html,
+    clientFiles: body.clientFiles,
     credential_hashes: [keyHash],
   });
 

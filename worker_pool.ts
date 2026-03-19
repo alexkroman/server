@@ -32,7 +32,6 @@ async function spawnAgent(
   slot: AgentSlot,
   opts: {
     getWorkerCode?: ((slug: string) => Promise<string | null>) | undefined;
-    getClientHtml?: ((slug: string) => Promise<string | null>) | undefined;
     kvCtx?: { kvStore: KvStore; scope: AgentScope } | undefined;
     vectorCtx?:
       | { vectorStore: ServerVectorStore; scope: AgentScope }
@@ -41,7 +40,7 @@ async function spawnAgent(
   },
 ): Promise<void> {
   const { slug } = slot;
-  const { getWorkerCode, getClientHtml, kvCtx, vectorCtx, getEnv } = opts;
+  const { getWorkerCode, kvCtx, vectorCtx, getEnv } = opts;
 
   log.info("Loading agent sandbox", { slug });
 
@@ -52,9 +51,6 @@ async function spawnAgent(
   if (!code) throw new Error(`Worker code not found for ${slug}`);
 
   const env = await getEnv();
-  const clientHtml = getClientHtml
-    ? (await getClientHtml(slug)) ?? undefined
-    : undefined;
 
   if (!kvCtx) {
     throw new Error(`No KV context for ${slug}`);
@@ -63,7 +59,6 @@ async function spawnAgent(
   slot.sandbox = await createSandbox({
     workerCode: code,
     env,
-    clientHtml,
     kvStore: kvCtx.kvStore,
     scope: kvCtx.scope,
     vectorStore: vectorCtx?.vectorStore,
@@ -94,7 +89,6 @@ export function ensureAgent(
   slot: AgentSlot,
   opts: {
     getWorkerCode?: ((slug: string) => Promise<string | null>) | undefined;
-    getClientHtml?: ((slug: string) => Promise<string | null>) | undefined;
     kvCtx?: { kvStore: KvStore; scope: AgentScope } | undefined;
     vectorCtx?:
       | { vectorStore: ServerVectorStore; scope: AgentScope }
@@ -173,12 +167,10 @@ export async function prepareSession(
   const kvCtx = { kvStore, scope };
   const vectorCtx = vectorStore ? { vectorStore, scope } : undefined;
   const getWorkerCode = (s: string) => store.getFile(s, "worker");
-  const getClientHtml = (s: string) => store.getFile(s, "html");
   const getEnv = async () => (await store.getEnv(slug)) ?? {};
 
   await ensureAgent(slot, {
     getWorkerCode,
-    getClientHtml,
     kvCtx,
     vectorCtx,
     getEnv,

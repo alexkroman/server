@@ -1,7 +1,7 @@
 // Copyright 2025 the AAI authors. MIT license.
 import * as log from "@std/log";
 import { STATUS_CODE } from "@std/http/status";
-import { HttpError, json, type RouteContext } from "./context.ts";
+import { type AppState, HttpError, json } from "./context.ts";
 import { VectorHttpRequestSchema } from "./_schemas.ts";
 import type { AgentScope } from "./scope_token.ts";
 
@@ -13,10 +13,11 @@ import type { AgentScope } from "./scope_token.ts";
  * the vector store and by external clients to query it.
  */
 export async function handleVector(
-  ctx: RouteContext,
+  req: Request,
+  state: AppState,
   scope: AgentScope,
 ): Promise<Response> {
-  const { vectorStore } = ctx.state;
+  const { vectorStore } = state;
   if (!vectorStore) {
     throw new HttpError(
       STATUS_CODE.ServiceUnavailable,
@@ -26,7 +27,7 @@ export async function handleVector(
 
   let msg: ReturnType<typeof VectorHttpRequestSchema.parse>;
   try {
-    msg = VectorHttpRequestSchema.parse(await ctx.req.json());
+    msg = VectorHttpRequestSchema.parse(await req.json());
   } catch {
     throw new HttpError(STATUS_CODE.BadRequest, "Invalid request");
   }

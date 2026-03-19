@@ -77,7 +77,7 @@ Deno.test("deploy rejects different owner for claimed slug", async () => {
     slug: "my-agent",
     env: {},
     worker: "w",
-    html: "<html></html>",
+    clientFiles: { "index.html": "<html></html>" },
     credential_hashes: [await hashApiKey("key1")],
   });
 

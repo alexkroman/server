@@ -17,11 +17,13 @@ export type BundleStore = {
     slug: string;
     env: Record<string, string>;
     worker: string;
-    html: string;
+    clientFiles: Record<string, string>;
     credential_hashes: string[];
   }): Promise<void>;
   getManifest(slug: string): Promise<AgentMetadata | null>;
   getFile(slug: string, file: FileKey): Promise<string | null>;
+  /** Get a client build file by relative path (e.g. "index.html", "assets/index-abc.js"). */
+  getClientFile(slug: string, filePath: string): Promise<string | null>;
   deleteAgent(slug: string): Promise<void>;
   /** Read env vars for a slug from the stored manifest. */
   getEnv(slug: string): Promise<Record<string, string> | null>;
@@ -174,11 +176,22 @@ export function createBundleStore(
         "application/javascript",
       );
 
-      await put(
-        objectKey(bundle.slug, "index.html"),
-        bundle.html,
-        "text/html",
-      );
+      // Store client build files under agents/{slug}/client/
+      for (const [filePath, content] of Object.entries(bundle.clientFiles)) {
+        const ext = filePath.split(".").pop() ?? "";
+        const contentType = ext === "html"
+          ? "text/html"
+          : ext === "js"
+          ? "application/javascript"
+          : ext === "css"
+          ? "text/css"
+          : "application/octet-stream";
+        await put(
+          objectKey(bundle.slug, `client/${filePath}`),
+          content,
+          contentType,
+        );
+      }
     },
 
     async getManifest(slug) {
@@ -197,6 +210,10 @@ export function createBundleStore(
     async getFile(slug, file) {
       const fileName = FILE_NAMES[file];
       return await get(objectKey(slug, fileName));
+    },
+
+    async getClientFile(slug, filePath) {
+      return await get(objectKey(slug, `client/${filePath}`));
     },
 
     deleteAgent,

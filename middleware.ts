@@ -11,47 +11,12 @@ import type { BundleStore } from "./bundle_store_tigris.ts";
 
 const VALID_SLUG_REGEXP = /^[a-z0-9][a-z0-9_-]{0,62}[a-z0-9]$/;
 
-const CORS_HEADERS: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "*",
-  "Access-Control-Allow-Headers": "*",
-};
-
-const SECURITY_HEADERS: Record<string, string> = {
-  "Cross-Origin-Opener-Policy": "same-origin",
-  "Cross-Origin-Embedder-Policy": "credentialless",
-};
-
-/** Apply CORS and security headers to a response (mutates nothing, returns new Response). */
-export function applyGlobalHeaders(res: Response): Response {
-  const headers = new Headers(res.headers);
-  for (
-    const [k, v] of Object.entries({ ...CORS_HEADERS, ...SECURITY_HEADERS })
-  ) {
-    if (!headers.has(k)) headers.set(k, v);
-  }
-  return new Response(res.body, {
-    status: res.status,
-    statusText: res.statusText,
-    headers,
-  });
-}
-
-/** Handle CORS preflight (OPTIONS) requests. */
-export function handlePreflight(): Response {
-  return new Response(null, {
-    status: STATUS_CODE.NoContent,
-    headers: { ...CORS_HEADERS, ...SECURITY_HEADERS },
-  });
-}
-
 function bearerToken(req: Request): string | null {
   return req.headers.get("Authorization")?.slice(7) || null;
 }
 
 /** Validate slug URL param and return it. */
-export function validateSlug(params: Record<string, string>): string {
-  const slug = params.slug ?? "";
+export function validateSlug(slug: string): string {
   if (!VALID_SLUG_REGEXP.test(slug)) {
     throw new HttpError(STATUS_CODE.BadRequest, "Invalid slug");
   }

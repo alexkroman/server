@@ -5,7 +5,7 @@ import {
   assertStrictEquals,
   assertStringIncludes,
 } from "@std/assert";
-import type { AppState, RouteContext } from "./context.ts";
+import type { AppState } from "./context.ts";
 import { handleKv } from "./kv_handler.ts";
 
 // --- helpers ---
@@ -41,34 +41,24 @@ function createMockKvStore() {
 
 const SCOPE = { slug: "test-agent", keyHash: "abc" };
 
-function makeCtx(body: unknown): RouteContext {
-  return {
-    req: new Request("http://localhost/kv", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    }),
-    info: {
-      remoteAddr: { transport: "tcp" as const, hostname: "127.0.0.1", port: 0 },
-      completed: Promise.resolve(),
-    },
-    params: {},
-    state: {
-      kvStore: createMockKvStore(),
-    } as unknown as AppState,
-  };
+function makeReq(body: unknown): Request {
+  return new Request("http://localhost/kv", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
 }
 
 async function postKv(
   kvStore: ReturnType<typeof createMockKvStore>,
   body: unknown,
 ): Promise<{ status: number; json: Record<string, unknown> }> {
-  const c = makeCtx(body);
-  (c.state as unknown as { kvStore: typeof kvStore }).kvStore = kvStore;
+  const req = makeReq(body);
+  const state = { kvStore } as unknown as AppState;
 
   let res: Response;
   try {
-    res = await handleKv(c, SCOPE);
+    res = await handleKv(req, state, SCOPE);
   } catch (err: unknown) {
     const status = (err as { status?: number }).status ?? 500;
     const message = (err as Error).message ?? "Unknown error";
@@ -230,21 +220,14 @@ Deno.test("kv: returns 500 when store throws", async () => {
     list: () => Promise.reject(new Error("db down")),
   };
 
-  const c: RouteContext = {
-    req: new Request("http://localhost/kv", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ op: "get", key: "x" }),
-    }),
-    info: {
-      remoteAddr: { transport: "tcp" as const, hostname: "127.0.0.1", port: 0 },
-      completed: Promise.resolve(),
-    },
-    params: {},
-    state: { kvStore } as unknown as AppState,
-  };
+  const req = new Request("http://localhost/kv", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ op: "get", key: "x" }),
+  });
+  const state = { kvStore } as unknown as AppState;
 
-  const res = await handleKv(c, SCOPE);
+  const res = await handleKv(req, state, SCOPE);
   assertStrictEquals(res.status, 500);
   const json = (await res.json()) as Record<string, unknown>;
   assertStringIncludes(json.error as string, "KV operation failed");

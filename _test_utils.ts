@@ -43,7 +43,9 @@ export function createTestStore(): BundleStore {
         JSON.stringify(manifest),
       );
       objects.set(objectKey(bundle.slug, "worker.js"), bundle.worker);
-      objects.set(objectKey(bundle.slug, "index.html"), bundle.html);
+      for (const [filePath, content] of Object.entries(bundle.clientFiles)) {
+        objects.set(objectKey(bundle.slug, `client/${filePath}`), content);
+      }
       return Promise.resolve();
     },
 
@@ -64,6 +66,12 @@ export function createTestStore(): BundleStore {
       if (!fileName) return Promise.resolve(null);
       return Promise.resolve(
         objects.get(objectKey(slug, fileName)) ?? null,
+      );
+    },
+
+    getClientFile(slug, filePath) {
+      return Promise.resolve(
+        objects.get(objectKey(slug, `client/${filePath}`)) ?? null,
       );
     },
 
@@ -118,8 +126,11 @@ export function deployBody(
   return JSON.stringify({
     env: VALID_ENV,
     worker: "console.log('w');",
-    html:
-      '<!DOCTYPE html><html><body><script>console.log("c");</script></body></html>',
+    clientFiles: {
+      "index.html":
+        '<!DOCTYPE html><html><body><script type="module" src="./assets/index.js"></script></body></html>',
+      "assets/index.js": 'console.log("c");',
+    },
     ...overrides,
   });
 }
@@ -136,12 +147,13 @@ export async function createTestOrchestrator(): Promise<{
   const scopeKey = await createTestScopeKey();
   const kvStore = createTestKvStore();
   const vectorStore = createTestVectorStore();
-  const handler = createOrchestrator({
+  const app = createOrchestrator({
     store,
     scopeKey,
     kvStore,
     vectorStore,
   });
+  const handler: Deno.ServeHandler = (req, info) => app.fetch(req, { info });
   return { handler, store, scopeKey, kvStore, vectorStore };
 }
 

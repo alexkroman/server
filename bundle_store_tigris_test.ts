@@ -9,7 +9,7 @@ Deno.test("TigrisBundleStore", async (t) => {
       slug: "hello",
       env: VALID_ENV,
       worker: "console.log('worker');",
-      html: "<html></html>",
+      clientFiles: { "index.html": "<html></html>" },
       credential_hashes: ["hash1"],
     });
 
@@ -23,7 +23,7 @@ Deno.test("TigrisBundleStore", async (t) => {
     const worker = await store.getFile("hello", "worker");
     assertStrictEquals(worker, "console.log('worker');");
 
-    const html = await store.getFile("hello", "html");
+    const html = await store.getClientFile("hello", "index.html");
     assertStrictEquals(html, "<html></html>");
   });
 
@@ -33,14 +33,14 @@ Deno.test("TigrisBundleStore", async (t) => {
       slug: "gone",
       env: VALID_ENV,
       worker: "w",
-      html: "<html></html>",
+      clientFiles: { "index.html": "<html></html>" },
       credential_hashes: [],
     });
     await store.deleteAgent("gone");
 
     assertStrictEquals(await store.getManifest("gone"), null);
     assertStrictEquals(await store.getFile("gone", "worker"), null);
-    assertStrictEquals(await store.getFile("gone", "html"), null);
+    assertStrictEquals(await store.getClientFile("gone", "index.html"), null);
   });
 
   await t.step("overwrite replaces existing agent", async () => {
@@ -49,14 +49,14 @@ Deno.test("TigrisBundleStore", async (t) => {
       slug: "x",
       env: VALID_ENV,
       worker: "old",
-      html: "<html></html>",
+      clientFiles: { "index.html": "<html></html>" },
       credential_hashes: [],
     });
     await store.putAgent({
       slug: "x",
       env: { ...VALID_ENV, EXTRA: "val" },
       worker: "new",
-      html: "<html></html>",
+      clientFiles: { "index.html": "<html></html>" },
       credential_hashes: [],
     });
 
@@ -72,7 +72,7 @@ Deno.test("TigrisBundleStore", async (t) => {
       slug: "big",
       env: VALID_ENV,
       worker: big,
-      html: "<html></html>",
+      clientFiles: { "index.html": "<html></html>" },
       credential_hashes: [],
     });
 
@@ -85,6 +85,6 @@ Deno.test("TigrisBundleStore", async (t) => {
     using store = createTestStore();
     assertStrictEquals(await store.getManifest("nope"), null);
     assertStrictEquals(await store.getFile("nope", "worker"), null);
-    assertStrictEquals(await store.getFile("nope", "html"), null);
+    assertStrictEquals(await store.getClientFile("nope", "index.html"), null);
   });
 });

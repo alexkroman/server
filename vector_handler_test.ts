@@ -1,6 +1,6 @@
 // Copyright 2025 the AAI authors. MIT license.
 import { assert, assertStrictEquals, assertStringIncludes } from "@std/assert";
-import type { AppState, RouteContext } from "./context.ts";
+import type { AppState } from "./context.ts";
 import { handleVector } from "./vector_handler.ts";
 import { createTestVectorStore } from "./_test_utils.ts";
 
@@ -8,23 +8,18 @@ import { createTestVectorStore } from "./_test_utils.ts";
 
 const SCOPE = { slug: "test-agent", keyHash: "abc" };
 
-function makeCtx(
-  body: unknown,
+function makeReq(body: unknown): Request {
+  return new Request("http://localhost/vector", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+function makeState(
   vectorStore?: ReturnType<typeof createTestVectorStore> | undefined,
-): RouteContext {
-  return {
-    req: new Request("http://localhost/vector", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    }),
-    info: {
-      remoteAddr: { transport: "tcp" as const, hostname: "127.0.0.1", port: 0 },
-      completed: Promise.resolve(),
-    },
-    params: {},
-    state: { vectorStore } as unknown as AppState,
-  };
+): AppState {
+  return { vectorStore } as unknown as AppState;
 }
 
 async function postVector(
@@ -32,10 +27,11 @@ async function postVector(
   vectorStore?: ReturnType<typeof createTestVectorStore>,
 ): Promise<{ status: number; json: Record<string, unknown> }> {
   const vs = vectorStore ?? createTestVectorStore();
-  const ctx = makeCtx(body, vs);
+  const req = makeReq(body);
+  const state = makeState(vs);
   let res: Response;
   try {
-    res = await handleVector(ctx, SCOPE);
+    res = await handleVector(req, state, SCOPE);
   } catch (err: unknown) {
     const status = (err as { status?: number }).status ?? 500;
     const message = (err as Error).message ?? "Unknown error";
@@ -50,11 +46,11 @@ async function postVector(
 // --- validation ---
 
 Deno.test("vector: rejects when store not configured", async () => {
-  const ctx = makeCtx({ op: "query", text: "hello" }, undefined);
-  (ctx.state as unknown as { vectorStore: undefined }).vectorStore = undefined;
+  const req = makeReq({ op: "query", text: "hello" });
+  const state = makeState(undefined);
   let status = 0;
   try {
-    await handleVector(ctx, SCOPE);
+    await handleVector(req, state, SCOPE);
   } catch (err: unknown) {
     status = (err as { status?: number }).status ?? 500;
   }
@@ -150,11 +146,11 @@ Deno.test("vector: returns 500 when store throws", async () => {
     query: () => Promise.reject(new Error("vec down")),
     remove: () => Promise.reject(new Error("vec down")),
   };
-  const ctx = makeCtx(
-    { op: "query", text: "hello" },
+  const req = makeReq({ op: "query", text: "hello" });
+  const state = makeState(
     failingStore as unknown as ReturnType<typeof createTestVectorStore>,
   );
-  const res = await handleVector(ctx, SCOPE);
+  const res = await handleVector(req, state, SCOPE);
   assertStrictEquals(res.status, 500);
   const json = (await res.json()) as Record<string, unknown>;
   assertStringIncludes(json.error as string, "Vector operation failed");
@@ -167,11 +163,11 @@ Deno.test("vector upsert: returns 500 when store throws", async () => {
     query: () => Promise.reject(new Error("write fail")),
     remove: () => Promise.reject(new Error("write fail")),
   };
-  const ctx = makeCtx(
-    { op: "upsert", id: "x", data: "y" },
+  const req = makeReq({ op: "upsert", id: "x", data: "y" });
+  const state = makeState(
     failingStore as unknown as ReturnType<typeof createTestVectorStore>,
   );
-  const res = await handleVector(ctx, SCOPE);
+  const res = await handleVector(req, state, SCOPE);
   assertStrictEquals(res.status, 500);
   const json = (await res.json()) as Record<string, unknown>;
   assertStringIncludes(json.error as string, "write fail");
