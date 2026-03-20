@@ -30,16 +30,13 @@
     "jsr:@std/testing@^1.0.17": "1.0.17",
     "jsr:@std/text@^1.0.17": "1.0.17",
     "jsr:@zod/zod@^4.3.6": "4.3.6",
-    "npm:@alexkroman1/aai@0.7": "0.7.10_@babel+core@7.29.0",
+    "npm:@alexkroman1/aai@*": "0.7.10_@babel+core@7.29.0",
     "npm:@aws-sdk/client-s3@^3.1001.0": "3.1008.0",
     "npm:@types/json-schema@^7.0.15": "7.0.15",
     "npm:@upstash/redis@^1.36.1": "1.37.0",
     "npm:@upstash/vector@1": "1.2.3",
-    "npm:assemblyai@4": "4.27.0",
     "npm:hono@4": "4.12.8",
     "npm:markdownlint-cli@0.44": "0.44.0",
-    "npm:mdream@0": "0.17.0",
-    "npm:p-timeout@^7.0.1": "7.0.1",
     "npm:ws@8": "8.19.0"
   },
   "jsr": {
@@ -1854,12 +1851,6 @@
     "argparse@2.0.1": {
       "integrity": "sha512-8+9WqebbFzpX9OR+Wa6O29asIogeRMzcGtAINdpMHHyAg10f05aSFVBbcEqGf/PXw1EjAZ+q2/bEBg3DvurK3Q=="
     },
-    "assemblyai@4.27.0": {
-      "integrity": "sha512-PDge8WUtnfY5VK/q5buwVJHF1jjMeA/vl6GU2JM8lc0Vi5DDwOudS8ST09Ez/ADykkotyiVrQPzg3lM98izOew==",
-      "dependencies": [
-        "ws"
-      ]
-    },
     "auto-bind@5.0.1": {
       "integrity": "sha512-ooviqdwwgfIfNmDwo94wlshcdzfO64XV0Cg6oDsDYBJfITDz1EngD2z7DkbvCWn+XIMsIqW27sEVF6qcpJrRcg=="
     },
@@ -1904,9 +1895,6 @@
         "update-browserslist-db"
       ],
       "bin": true
-    },
-    "cac@7.0.0": {
-      "integrity": "sha512-tixWYgm5ZoOD+3g6UTea91eow5z6AAHaho3g0V9CNSNb45gM8SmflpAc+GRd1InC4AqN/07Unrgp56Y94N9hJQ=="
     },
     "caniuse-lite@1.0.30001780": {
       "integrity": "sha512-llngX0E7nQci5BPJDqoZSbuZ5Bcs9F5db7EtgfwBerX9XGtkkiO4NwfDDIRzHTTwcYC8vC7bmeUEPGrKlR/TkQ=="
@@ -2530,15 +2518,6 @@
         "micromark-util-types"
       ]
     },
-    "mdream@0.17.0": {
-      "integrity": "sha512-DVaUCgKJZx7Wp6DNZMBhkMWf40nEtANLa8+ZwhqFJE276YiKUqpupG+eCIxKIcLtUP4aKpKp6EssNjCx49qtSg==",
-      "dependencies": [
-        "cac",
-        "pathe",
-        "tinyglobby"
-      ],
-      "bin": true
-    },
     "mdurl@2.0.0": {
       "integrity": "sha512-Lf+9+2r+Tdp5wXDXC4PcIBjTDtq4UKjCPMQhKIuzpJNW0b96kVqSwW0bT7FhRSfmAiFYgP+SCRvdrDozfh0U5w=="
     },
@@ -2818,9 +2797,6 @@
         "yocto-queue"
       ]
     },
-    "p-timeout@7.0.1": {
-      "integrity": "sha512-AxTM2wDGORHGEkPCt8yqxOTMgpfbEHqF51f/5fJCmwFC3C/zNcGT63SymH2ttOAaiIws2zVg4+izQCjrakcwHg=="
-    },
     "package-json-from-dist@1.0.1": {
       "integrity": "sha512-UEZIS3/by4OC8vL3P2dTXRETpebLI2NiI5vIrjaD/5UtrkFX/tNbwjTSRAGC/+7CAo2pIcBaRgWmcBBHcsaCIw=="
     },
@@ -2858,9 +2834,6 @@
         "lru-cache@10.4.3",
         "minipass"
       ]
-    },
-    "pathe@2.0.3": {
-      "integrity": "sha512-WUjGcAqP1gQacoQe+OBJsFA7Ld4DyXuUIjZ5cc75cLHvJ7dtNsTugphxIADwspS+AraAUePCKrSVtPLFj/F88w=="
     },
     "peberminta@0.9.0": {
       "integrity": "sha512-XIxfHpEuSJbITd1H3EeQwpcZbTLHc+VVr8ANI9t5sit565tsI4/xK3KWTUFE2e6QiangUkh3B0jihzmGnNrRsQ=="
@@ -3224,16 +3197,13 @@
       "jsr:@std/testing@^1.0.17",
       "jsr:@std/text@^1.0.17",
       "jsr:@zod/zod@^4.3.6",
-      "npm:@alexkroman1/aai@0.7",
+      "npm:@alexkroman1/aai@*",
       "npm:@aws-sdk/client-s3@^3.1001.0",
       "npm:@types/json-schema@^7.0.15",
       "npm:@upstash/redis@^1.36.1",
       "npm:@upstash/vector@1",
-      "npm:assemblyai@4",
       "npm:hono@4",
       "npm:markdownlint-cli@0.44",
-      "npm:mdream@0",
-      "npm:p-timeout@^7.0.1",
       "npm:ws@8"
     ]
   }
