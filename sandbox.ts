@@ -73,9 +73,6 @@ export async function createSandbox(
     worker as unknown as CapnwebPort,
   );
 
-  const wsFactory = (url: string, opts: { headers: Record<string, string> }) =>
-    new WebSocket(url, { headers: opts.headers }) as unknown as S2sWebSocket;
-
   // ─── Host-side RPC handlers ──────────────────────────────────────────
 
   // Fetch proxy with SSRF protection
@@ -84,14 +81,10 @@ export async function createSandbox(
       string,
       string,
       Record<string, string>,
-      string | undefined,
+      string?,
     ];
     await assertPublicUrl(fetchUrl);
-    const response = await fetch(fetchUrl, {
-      method,
-      headers,
-      ...(body ? { body } : {}),
-    });
+    const response = await fetch(fetchUrl, { method, headers, body });
     return {
       status: response.status,
       headers: Object.fromEntries(response.headers),
@@ -155,13 +148,12 @@ export async function createSandbox(
   });
 
   // S2S WebSocket creation — receives transferred port and bridges
-  endpoint.handle("host.createWebSocket", (_args, ports) => {
-    const [url, headersJson] = _args as [string, string];
-    const headers = JSON.parse(headersJson) as Record<string, string>;
+  endpoint.handle("host.createWebSocket", (args, ports) => {
+    const [url, headers] = args as [string, Record<string, string>];
     const port = ports[0];
     if (!port) throw new Error("No port transferred for WebSocket");
 
-    const ws = wsFactory(url, { headers });
+    const ws = new WebSocket(url, { headers }) as unknown as S2sWebSocket;
     bridgeS2sWebSocketToPort(ws, port);
     return null;
   });
