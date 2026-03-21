@@ -119,7 +119,10 @@ export async function createSandbox(
 
   endpoint.handle("host.kv.list", async (args) => {
     const [prefix, limit, reverse] = args as [string, number?, boolean?];
-    return await kvStore.list(scope, prefix, { limit, reverse });
+    const opts: { limit?: number; reverse?: boolean } = {};
+    if (limit !== undefined) opts.limit = limit;
+    if (reverse !== undefined) opts.reverse = reverse;
+    return await kvStore.list(scope, prefix, opts);
   });
 
   // Scoped vector operations
