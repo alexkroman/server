@@ -1,9 +1,9 @@
 // Copyright 2025 the AAI authors. MIT license.
 import * as log from "@std/log";
-import { STATUS_CODE } from "@std/http/status";
-import { type AppState, HttpError, json } from "./context.ts";
+import { HTTPException } from "hono/http-exception";
+import type { Context } from "hono";
+import type { Env } from "./context.ts";
 import { VectorHttpRequestSchema } from "./_schemas.ts";
-import type { AgentScope } from "./scope_token.ts";
 
 /**
  * Handler for the vector operations endpoint (`POST /:slug/vector`).
@@ -12,33 +12,30 @@ import type { AgentScope } from "./scope_token.ts";
  * scoped to the requesting agent. Used by `aai rag` to populate
  * the vector store and by external clients to query it.
  */
-export async function handleVector(
-  req: Request,
-  state: AppState,
-  scope: AgentScope,
-): Promise<Response> {
-  const { vectorStore } = state;
+export async function handleVector(c: Context<Env>): Promise<Response> {
+  const { vectorStore } = c.get("state");
+  const scope = { keyHash: c.get("keyHash"), slug: c.get("slug") };
+
   if (!vectorStore) {
-    throw new HttpError(
-      STATUS_CODE.ServiceUnavailable,
-      "Vector store not configured",
-    );
+    throw new HTTPException(503, {
+      message: "Vector store not configured",
+    });
   }
 
   let msg: ReturnType<typeof VectorHttpRequestSchema.parse>;
   try {
-    msg = VectorHttpRequestSchema.parse(await req.json());
+    msg = VectorHttpRequestSchema.parse(await c.req.json());
   } catch {
-    throw new HttpError(STATUS_CODE.BadRequest, "Invalid request");
+    throw new HTTPException(400, { message: "Invalid request" });
   }
 
   try {
     switch (msg.op) {
       case "upsert":
         await vectorStore.upsert(scope, msg.id, msg.data, msg.metadata);
-        return json({ result: "OK" });
+        return c.json({ result: "OK" });
       case "query":
-        return json({
+        return c.json({
           result: await vectorStore.query(
             scope,
             msg.text,
@@ -54,8 +51,6 @@ export async function handleVector(
       slug: scope.slug,
       error: message,
     });
-    return json({ error: `Vector operation failed: ${message}` }, {
-      status: STATUS_CODE.InternalServerError,
-    });
+    return c.json({ error: `Vector operation failed: ${message}` }, 500);
   }
 }

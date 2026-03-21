@@ -9,6 +9,7 @@ import {
 import type { AgentMetadata } from "./worker_pool.ts";
 import { AgentMetadataSchema } from "./_schemas.ts";
 import { type CredentialKey, decryptEnv, encryptEnv } from "./credentials.ts";
+import { typeByExtension } from "@std/media-types";
 
 export type FileKey = "worker" | "html";
 
@@ -29,8 +30,6 @@ export type BundleStore = {
   getEnv(slug: string): Promise<Record<string, string> | null>;
   /** Update env vars for a slug without redeploying the worker. */
   putEnv(slug: string, env: Record<string, string>): Promise<void>;
-  close(): void;
-  [Symbol.dispose](): void;
 };
 
 type CacheEntry = {
@@ -151,7 +150,7 @@ export function createBundleStore(
     }
   }
 
-  return {
+  const store: BundleStore = {
     async putAgent(bundle) {
       await deleteAgent(bundle.slug);
 
@@ -179,13 +178,8 @@ export function createBundleStore(
       // Store client build files under agents/{slug}/client/
       for (const [filePath, content] of Object.entries(bundle.clientFiles)) {
         const ext = filePath.split(".").pop() ?? "";
-        const contentType = ext === "html"
-          ? "text/html"
-          : ext === "js"
-          ? "application/javascript"
-          : ext === "css"
-          ? "text/css"
-          : "application/octet-stream";
+        const contentType = typeByExtension(ext) ??
+          "application/octet-stream";
         await put(
           objectKey(bundle.slug, `client/${filePath}`),
           content,
@@ -219,34 +213,23 @@ export function createBundleStore(
     deleteAgent,
 
     async getEnv(slug) {
-      const data = await get(objectKey(slug, "manifest.json"));
-      if (data === null) return null;
-      const raw = JSON.parse(data);
-      return await decryptEnv(credentialKey, { encrypted: raw.env, slug });
+      const manifest = await store.getManifest(slug);
+      return manifest?.env ?? null;
     },
 
     async putEnv(slug, env) {
-      // Read existing manifest, update env, write back
       const data = await get(objectKey(slug, "manifest.json"));
       if (data === null) throw new Error(`Agent ${slug} not found`);
-      const manifest = JSON.parse(data);
-
-      manifest.env = await encryptEnv(credentialKey, { env, slug });
-      manifest.envEncrypted = true;
-
+      const raw = JSON.parse(data);
+      raw.env = await encryptEnv(credentialKey, { env, slug });
+      raw.envEncrypted = true;
       await put(
         objectKey(slug, "manifest.json"),
-        JSON.stringify(manifest),
+        JSON.stringify(raw),
         "application/json",
       );
     },
-
-    close() {
-      // S3 client has no close
-    },
-
-    [Symbol.dispose]() {
-      // no-op
-    },
   };
+
+  return store;
 }

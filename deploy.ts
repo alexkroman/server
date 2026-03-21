@@ -1,8 +1,8 @@
 // Copyright 2025 the AAI authors. MIT license.
 import * as log from "@std/log";
-import { STATUS_CODE } from "@std/http/status";
-import { type AppState, json } from "./context.ts";
-import { HttpError } from "./context.ts";
+import { HTTPException } from "hono/http-exception";
+import type { Context } from "hono";
+import type { Env } from "./context.ts";
 import { type DeployBody, DeployBodySchema, EnvSchema } from "./_schemas.ts";
 import type { AgentSlot } from "./worker_pool.ts";
 
@@ -13,17 +13,16 @@ import type { AgentSlot } from "./worker_pool.ts";
  * If env is provided in the deploy body, it's merged with any existing
  * stored env. If not provided, the existing stored env is preserved.
  */
-export async function handleDeploy(
-  req: Request,
-  state: AppState,
-  opts: { slug: string; keyHash: string },
-): Promise<Response> {
-  const { slug, keyHash } = opts;
+export async function handleDeploy(c: Context<Env>): Promise<Response> {
+  const state = c.get("state");
+  const slug = c.get("slug");
+  const keyHash = c.get("keyHash");
+
   let body: DeployBody;
   try {
-    body = DeployBodySchema.parse(await req.json());
+    body = DeployBodySchema.parse(await c.req.json());
   } catch {
-    throw new HttpError(STATUS_CODE.BadRequest, "Invalid deploy body");
+    throw new HTTPException(400, { message: "Invalid deploy body" });
   }
 
   // Merge env: deploy body env takes precedence, then stored env
@@ -32,9 +31,9 @@ export async function handleDeploy(
 
   const envParsed = EnvSchema.safeParse(env);
   if (!envParsed.success) {
-    return json(
+    return c.json(
       { error: `Invalid platform config: ${envParsed.error.message}` },
-      { status: STATUS_CODE.BadRequest },
+      400,
     );
   }
 
@@ -62,5 +61,5 @@ export async function handleDeploy(
 
   log.info("Deploy received", { slug });
 
-  return json({ ok: true, message: `Deployed ${slug}` });
+  return c.json({ ok: true, message: `Deployed ${slug}` });
 }

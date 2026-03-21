@@ -9,7 +9,7 @@ import {
 } from "./_test_utils.ts";
 
 Deno.test("orchestrator adds Cross-Origin-Isolation headers", async () => {
-  using store = createTestStore();
+  const store = createTestStore();
   const scopeKey = await createTestScopeKey();
   const kvStore = createTestKvStore();
   const app = createOrchestrator({ store, scopeKey, kvStore });
@@ -25,7 +25,7 @@ Deno.test("orchestrator adds Cross-Origin-Isolation headers", async () => {
 });
 
 Deno.test("orchestrator returns 400 on deploy without auth", async () => {
-  using store = createTestStore();
+  const store = createTestStore();
   const scopeKey = await createTestScopeKey();
   const kvStore = createTestKvStore();
   const app = createOrchestrator({ store, scopeKey, kvStore });

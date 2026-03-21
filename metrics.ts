@@ -8,6 +8,25 @@
 
 const DEFAULT_BUCKETS = [0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30];
 
+// OpenTelemetry recommended buckets for HTTP request duration:
+// https://opentelemetry.io/docs/specs/semconv/http/http-metrics/
+const HTTP_BUCKETS = [
+  0.005,
+  0.01,
+  0.025,
+  0.05,
+  0.075,
+  0.1,
+  0.25,
+  0.5,
+  0.75,
+  1,
+  2.5,
+  5,
+  7.5,
+  10,
+];
+
 // --- Label helpers ---
 
 type Labels = Record<string, string>;
@@ -41,7 +60,8 @@ function resolve(
   key: string,
   agent?: string,
 ): { suffix: string; extra: string } | null {
-  if (agent && names.includes("agent")) {
+  if (agent) {
+    if (!names.includes("agent")) return null;
     const parsed = parseKey(names, key);
     if (parsed.agent !== agent) return null;
     const stripped = stripAgent(names, parsed);
@@ -195,23 +215,38 @@ export const sessionsActive = createGauge(
   { help: "Currently active voice sessions", labelNames: ["agent"] },
 );
 
+export const httpRequestsTotal = createCounter(
+  "http_requests_total",
+  {
+    help: "Total number of HTTP requests",
+    labelNames: ["method", "route", "status", "ok"],
+  },
+);
+
+export const httpRequestDurationSeconds = createHistogram(
+  "http_request_duration_seconds",
+  {
+    help: "Duration of HTTP requests in seconds",
+    buckets: HTTP_BUCKETS,
+    labelNames: ["method", "route", "status", "ok"],
+  },
+);
+
 type Metric = { serialize(agent?: string): string };
 
-const agentMetrics: Metric[] = [
+const metrics: Metric[] = [
   sessionsTotal,
   sessionsActive,
-];
-
-const allMetrics: Metric[] = [
-  ...agentMetrics,
+  httpRequestsTotal,
+  httpRequestDurationSeconds,
 ];
 
 /** Platform view: all metrics, all agents. */
 export function serialize(): string {
-  return allMetrics.map((m) => m.serialize()).join("\n\n") + "\n";
+  return metrics.map((m) => m.serialize()).join("\n\n") + "\n";
 }
 
 /** Customer view: agent-specific metrics, agent label stripped. */
 export function serializeForAgent(agent: string): string {
-  return agentMetrics.map((m) => m.serialize(agent)).join("\n\n") + "\n";
+  return metrics.map((m) => m.serialize(agent)).join("\n\n") + "\n";
 }

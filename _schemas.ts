@@ -107,3 +107,8 @@ export const VectorHttpRequestSchema: z.ZodType<VectorHttpRequest> = z
       filter: z.string().optional(),
     }),
   ]);
+
+// ─── Secret schemas ─────────────────────────────────────────────────────────
+
+/** Zod schema for validating secret update bodies (string key-value pairs). */
+export const SecretUpdatesSchema = z.record(z.string(), z.string());

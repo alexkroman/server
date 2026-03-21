@@ -1,6 +1,5 @@
 // Copyright 2025 the AAI authors. MIT license.
-import { STATUS_CODE } from "@std/http/status";
-import { HttpError } from "./context.ts";
+import { HTTPException } from "hono/http-exception";
 import { verifySlugOwner } from "./auth.ts";
 import {
   type AgentScope,
@@ -12,13 +11,15 @@ import type { BundleStore } from "./bundle_store_tigris.ts";
 const VALID_SLUG_REGEXP = /^[a-z0-9][a-z0-9_-]{0,62}[a-z0-9]$/;
 
 function bearerToken(req: Request): string | null {
-  return req.headers.get("Authorization")?.slice(7) || null;
+  const header = req.headers.get("Authorization");
+  if (!header?.startsWith("Bearer ")) return null;
+  return header.slice(7) || null;
 }
 
 /** Validate slug URL param and return it. */
 export function validateSlug(slug: string): string {
   if (!VALID_SLUG_REGEXP.test(slug)) {
-    throw new HttpError(STATUS_CODE.BadRequest, "Invalid slug");
+    throw new HTTPException(400, { message: "Invalid slug" });
   }
   return slug;
 }
@@ -30,20 +31,18 @@ export async function requireOwner(
 ): Promise<string> {
   const apiKey = bearerToken(req);
   if (!apiKey) {
-    throw new HttpError(
-      STATUS_CODE.Unauthorized,
-      "Missing Authorization header (Bearer <API_KEY>)",
-    );
+    throw new HTTPException(401, {
+      message: "Missing Authorization header (Bearer <API_KEY>)",
+    });
   }
   const result = await verifySlugOwner(apiKey, {
     slug: opts.slug,
     store: opts.store,
   });
   if (result.status === "forbidden") {
-    throw new HttpError(
-      STATUS_CODE.Forbidden,
-      `Slug "${opts.slug}" is owned by another user.`,
-    );
+    throw new HTTPException(403, {
+      message: `Slug "${opts.slug}" is owned by another user.`,
+    });
   }
   return result.keyHash;
 }
@@ -51,7 +50,7 @@ export async function requireOwner(
 /** Require WebSocket upgrade header. */
 export function requireUpgrade(req: Request): void {
   if (req.headers.get("upgrade")?.toLowerCase() !== "websocket") {
-    throw new HttpError(STATUS_CODE.BadRequest, "Expected WebSocket upgrade");
+    throw new HTTPException(400, { message: "Expected WebSocket upgrade" });
   }
 }
 
@@ -64,7 +63,7 @@ export function requireInternal(
   const addr = info?.remoteAddr;
   const ip = fly ?? (addr && "hostname" in addr ? addr.hostname : "") ?? "";
   if (!isPrivateIp(ip)) {
-    throw new HttpError(STATUS_CODE.Forbidden, "Forbidden");
+    throw new HTTPException(403, { message: "Forbidden" });
   }
 }
 
@@ -87,17 +86,15 @@ export async function requireScopeToken(
 ): Promise<AgentScope> {
   const token = bearerToken(req);
   if (!token) {
-    throw new HttpError(
-      STATUS_CODE.Unauthorized,
-      "Missing Authorization header",
-    );
+    throw new HTTPException(401, {
+      message: "Missing Authorization header",
+    });
   }
   const scope = await verifyScopeToken(scopeKey, token);
   if (!scope) {
-    throw new HttpError(
-      STATUS_CODE.Forbidden,
-      "Invalid or tampered scope token",
-    );
+    throw new HTTPException(403, {
+      message: "Invalid or tampered scope token",
+    });
   }
   return scope;
 }

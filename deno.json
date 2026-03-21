@@ -39,6 +39,7 @@
     "@std/log": "jsr:@std/log@^0.224.14",
     "@std/net": "jsr:@std/net@^1.0.6",
     "@std/semver": "jsr:@std/semver@^1.0.8",
+    "@std/media-types": "jsr:@std/media-types@^1.1.0",
     "@std/text": "jsr:@std/text@^1.0.17",
     "zod": "jsr:@zod/zod@^4.3.6",
     "json-schema": "npm:@types/json-schema@^7.0.15",

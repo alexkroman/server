@@ -22,46 +22,35 @@ export type AgentSlot = {
   keyHash: string;
   /** Active sandboxed worker running the agent. */
   sandbox?: Sandbox;
-  /** Promise that resolves when the sandbox is done initializing. */
-  initializing?: Promise<void>;
+  /** Promise that resolves to the sandbox when initialization completes. */
+  initializing?: Promise<Sandbox>;
   /** Timer handle for idle sandbox eviction. */
   idleTimer?: ReturnType<typeof setTimeout>;
 };
 
+type AgentOpts = {
+  getWorkerCode: (slug: string) => Promise<string | null>;
+  kvCtx: { kvStore: KvStore; scope: AgentScope };
+  vectorCtx?: { vectorStore: ServerVectorStore; scope: AgentScope } | undefined;
+  getEnv: () => Promise<Record<string, string>>;
+};
+
 async function spawnAgent(
   slot: AgentSlot,
-  opts: {
-    getWorkerCode?: ((slug: string) => Promise<string | null>) | undefined;
-    kvCtx?: { kvStore: KvStore; scope: AgentScope } | undefined;
-    vectorCtx?:
-      | { vectorStore: ServerVectorStore; scope: AgentScope }
-      | undefined;
-    getEnv: () => Promise<Record<string, string>>;
-  },
+  opts: AgentOpts,
 ): Promise<void> {
   const { slug } = slot;
-  const { getWorkerCode, kvCtx, vectorCtx, getEnv } = opts;
-
   log.info("Loading agent sandbox", { slug });
 
-  if (!getWorkerCode) {
-    throw new Error(`No worker code source for ${slug}`);
-  }
-  const code = await getWorkerCode(slug);
+  const code = await opts.getWorkerCode(slug);
   if (!code) throw new Error(`Worker code not found for ${slug}`);
-
-  const env = await getEnv();
-
-  if (!kvCtx) {
-    throw new Error(`No KV context for ${slug}`);
-  }
 
   slot.sandbox = await createSandbox({
     workerCode: code,
-    env,
-    kvStore: kvCtx.kvStore,
-    scope: kvCtx.scope,
-    vectorStore: vectorCtx?.vectorStore,
+    env: await opts.getEnv(),
+    kvStore: opts.kvCtx.kvStore,
+    scope: opts.kvCtx.scope,
+    vectorStore: opts.vectorCtx?.vectorStore,
   });
 }
 
@@ -84,23 +73,18 @@ function resetIdleTimer(slot: AgentSlot): void {
  * If a sandbox is already active, resets its idle eviction timer. If no
  * sandbox exists, loads the bundle and creates one. Concurrent calls for
  * the same slot coalesce into a single initialization promise.
+ *
+ * Returns the active sandbox.
  */
 export function ensureAgent(
   slot: AgentSlot,
-  opts: {
-    getWorkerCode?: ((slug: string) => Promise<string | null>) | undefined;
-    kvCtx?: { kvStore: KvStore; scope: AgentScope } | undefined;
-    vectorCtx?:
-      | { vectorStore: ServerVectorStore; scope: AgentScope }
-      | undefined;
-    getEnv: () => Promise<Record<string, string>>;
-  },
-): Promise<void> {
+  opts: AgentOpts,
+): Promise<Sandbox> {
   const t0 = performance.now();
 
   if (slot.sandbox) {
     resetIdleTimer(slot);
-    return Promise.resolve();
+    return Promise.resolve(slot.sandbox);
   }
   if (slot.initializing) return slot.initializing;
 
@@ -112,6 +96,7 @@ export function ensureAgent(
         slug: slot.slug,
         durationMs: Math.round(performance.now() - t0),
       });
+      return slot.sandbox!;
     },
   ).catch((err) => {
     delete slot.initializing;
@@ -169,12 +154,10 @@ export async function prepareSession(
   const getWorkerCode = (s: string) => store.getFile(s, "worker");
   const getEnv = async () => (await store.getEnv(slug)) ?? {};
 
-  await ensureAgent(slot, {
+  return await ensureAgent(slot, {
     getWorkerCode,
     kvCtx,
     vectorCtx,
     getEnv,
   });
-
-  return slot.sandbox!;
 }
