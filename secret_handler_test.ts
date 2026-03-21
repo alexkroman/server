@@ -1,31 +1,27 @@
 // Copyright 2025 the AAI authors. MIT license.
 import { assertEquals } from "@std/assert";
-import {
-  createTestOrchestrator,
-  deployBody,
-  DUMMY_INFO,
-} from "./_test_utils.ts";
-
-function req(path: string, init?: RequestInit) {
-  return new Request(`http://localhost${path}`, init);
-}
+import { createTestOrchestrator, deployAgent } from "./_test_utils.ts";
 
 async function deployAndAuth(slug = "my-agent", key = "key1") {
   const orch = await createTestOrchestrator();
-
-  await orch.handler(
-    req(`/${slug}/deploy`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${key}`,
-        "Content-Type": "application/json",
-      },
-      body: deployBody(),
-    }),
-    DUMMY_INFO,
-  );
-
+  await deployAgent(orch.fetch, slug, key);
   return { ...orch, key };
+}
+
+function secretReq(
+  slug: string,
+  key: string,
+  method: string,
+  body?: unknown,
+): [string, RequestInit] {
+  return [`/${slug}/secret`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${key}`,
+      ...(body ? { "Content-Type": "application/json" } : {}),
+    },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  }];
 }
 
 // =============================================================================
@@ -33,22 +29,15 @@ async function deployAndAuth(slug = "my-agent", key = "key1") {
 // =============================================================================
 
 Deno.test("secret list rejects without auth", async () => {
-  const { handler } = await deployAndAuth();
-  const res = await handler(req("/my-agent/secret"), DUMMY_INFO);
-  assertEquals(res.status, 401);
+  const { fetch } = await deployAndAuth();
+  assertEquals((await fetch("/my-agent/secret")).status, 401);
 });
 
 Deno.test("secret list returns var names for deployed agent", async () => {
-  const { handler, key } = await deployAndAuth();
-  const res = await handler(
-    req("/my-agent/secret", {
-      headers: { Authorization: `Bearer ${key}` },
-    }),
-    DUMMY_INFO,
-  );
+  const { fetch, key } = await deployAndAuth();
+  const res = await fetch(...secretReq("my-agent", key, "GET"));
   assertEquals(res.status, 200);
-  const body = await res.json();
-  assertEquals(body.vars, ["ASSEMBLYAI_API_KEY"]);
+  assertEquals((await res.json()).vars, ["ASSEMBLYAI_API_KEY"]);
 });
 
 // =============================================================================
@@ -56,143 +45,85 @@ Deno.test("secret list returns var names for deployed agent", async () => {
 // =============================================================================
 
 Deno.test("secret set rejects without auth", async () => {
-  const { handler } = await deployAndAuth();
-  const res = await handler(
-    req("/my-agent/secret", {
+  const { fetch } = await deployAndAuth();
+  assertEquals(
+    (await fetch("/my-agent/secret", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ MY_KEY: "secret" }),
-    }),
-    DUMMY_INFO,
+    })).status,
+    401,
   );
-  assertEquals(res.status, 401);
 });
 
 Deno.test("secret set merges new vars", async () => {
-  const { handler, key } = await deployAndAuth();
-
-  const setRes = await handler(
-    req("/my-agent/secret", {
-      method: "PUT",
-      headers: {
-        Authorization: `Bearer ${key}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ MY_KEY: "secret" }),
-    }),
-    DUMMY_INFO,
+  const { fetch, key } = await deployAndAuth();
+  const setRes = await fetch(
+    ...secretReq("my-agent", key, "PUT", { MY_KEY: "secret" }),
   );
   assertEquals(setRes.status, 200);
   const setBody = await setRes.json();
   assertEquals(setBody.ok, true);
   assertEquals(setBody.keys.sort(), ["ASSEMBLYAI_API_KEY", "MY_KEY"]);
 
-  // Verify via list
-  const listRes = await handler(
-    req("/my-agent/secret", {
-      headers: { Authorization: `Bearer ${key}` },
-    }),
-    DUMMY_INFO,
-  );
-  const listBody = await listRes.json();
-  assertEquals(listBody.vars.sort(), ["ASSEMBLYAI_API_KEY", "MY_KEY"]);
+  const listRes = await fetch(...secretReq("my-agent", key, "GET"));
+  assertEquals((await listRes.json()).vars.sort(), [
+    "ASSEMBLYAI_API_KEY",
+    "MY_KEY",
+  ]);
 });
 
-Deno.test("secret set rejects non-object body", async () => {
-  const { handler, key } = await deployAndAuth();
-
-  const res = await handler(
-    req("/my-agent/secret", {
-      method: "PUT",
-      headers: {
-        Authorization: `Bearer ${key}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(["not", "an", "object"]),
-    }),
-    DUMMY_INFO,
-  );
-  assertEquals(res.status, 400);
-});
-
-Deno.test("secret set rejects non-string values", async () => {
-  const { handler, key } = await deployAndAuth();
-
-  const res = await handler(
-    req("/my-agent/secret", {
-      method: "PUT",
-      headers: {
-        Authorization: `Bearer ${key}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ NUM: 123 }),
-    }),
-    DUMMY_INFO,
-  );
-  assertEquals(res.status, 400);
-});
+for (
+  const [name, body] of [
+    ["non-object body", ["not", "an", "object"]],
+    ["non-string values", { NUM: 123 }],
+  ] as const
+) {
+  Deno.test(`secret set rejects ${name}`, async () => {
+    const { fetch, key } = await deployAndAuth();
+    assertEquals(
+      (await fetch(...secretReq("my-agent", key, "PUT", body))).status,
+      400,
+    );
+  });
+}
 
 // =============================================================================
 // DELETE /secret/:key — remove
 // =============================================================================
 
 Deno.test("secret delete rejects without auth", async () => {
-  const { handler } = await deployAndAuth();
-  const res = await handler(
-    req("/my-agent/secret/ASSEMBLYAI_API_KEY", { method: "DELETE" }),
-    DUMMY_INFO,
+  const { fetch } = await deployAndAuth();
+  assertEquals(
+    (await fetch("/my-agent/secret/ASSEMBLYAI_API_KEY", {
+      method: "DELETE",
+    })).status,
+    401,
   );
-  assertEquals(res.status, 401);
 });
 
 Deno.test("secret delete removes a key", async () => {
-  const { handler, key } = await deployAndAuth();
+  const { fetch, key } = await deployAndAuth();
+  await fetch(...secretReq("my-agent", key, "PUT", { EXTRA: "val" }));
 
-  // Add an extra key first
-  await handler(
-    req("/my-agent/secret", {
-      method: "PUT",
-      headers: {
-        Authorization: `Bearer ${key}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ EXTRA: "val" }),
-    }),
-    DUMMY_INFO,
-  );
-
-  // Delete it
-  const delRes = await handler(
-    req("/my-agent/secret/EXTRA", {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${key}` },
-    }),
-    DUMMY_INFO,
-  );
+  const delRes = await fetch("/my-agent/secret/EXTRA", {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${key}` },
+  });
   assertEquals(delRes.status, 200);
   assertEquals((await delRes.json()).ok, true);
 
-  // Verify it's gone
-  const listRes = await handler(
-    req("/my-agent/secret", {
-      headers: { Authorization: `Bearer ${key}` },
-    }),
-    DUMMY_INFO,
-  );
-  const listBody = await listRes.json();
-  assertEquals(listBody.vars, ["ASSEMBLYAI_API_KEY"]);
+  const listRes = await fetch(...secretReq("my-agent", key, "GET"));
+  assertEquals((await listRes.json()).vars, ["ASSEMBLYAI_API_KEY"]);
 });
 
 Deno.test("secret delete returns 404 for unknown agent", async () => {
-  const { handler, key } = await deployAndAuth();
-  const res = await handler(
-    req("/nonexistent/secret/KEY", {
+  const { fetch, key } = await deployAndAuth();
+  assertEquals(
+    (await fetch("/nonexistent/secret/KEY", {
       method: "DELETE",
       headers: { Authorization: `Bearer ${key}` },
-    }),
-    DUMMY_INFO,
+    })).status,
+    404,
   );
-  // 404 because the agent doesn't exist (unclaimed slug, no manifest)
-  // The requireOwner will succeed (unclaimed), but handleSecretDelete will 404
-  assertEquals(res.status, 404);
 });

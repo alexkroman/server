@@ -132,9 +132,15 @@ export function deployBody(
   });
 }
 
-/** Create a fully wired test orchestrator. */
+/** Fetch function returned by createTestOrchestrator. */
+export type TestFetch = (
+  input: string | Request,
+  init?: RequestInit,
+) => Promise<Response>;
+
+/** Create a fully wired test orchestrator with a `fetch` helper. */
 export async function createTestOrchestrator(): Promise<{
-  handler: Deno.ServeHandler;
+  fetch: TestFetch;
   store: BundleStore;
   scopeKey: ScopeKey;
   kvStore: KvStore;
@@ -144,14 +150,26 @@ export async function createTestOrchestrator(): Promise<{
   const scopeKey = await createTestScopeKey();
   const kvStore = createTestKvStore();
   const vectorStore = createTestVectorStore();
-  const app = createOrchestrator({
-    store,
-    scopeKey,
-    kvStore,
-    vectorStore,
+  const app = createOrchestrator({ store, scopeKey, kvStore, vectorStore });
+  const fetch: TestFetch = async (input, init) =>
+    app.request(input, init, { info: DUMMY_INFO });
+  return { fetch, store, scopeKey, kvStore, vectorStore };
+}
+
+/** Deploy an agent via the test orchestrator. */
+export async function deployAgent(
+  fetch: TestFetch,
+  slug = "my-agent",
+  key = "key1",
+): Promise<void> {
+  await fetch(`/${slug}/deploy`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+    },
+    body: deployBody(),
   });
-  const handler: Deno.ServeHandler = (req, info) => app.fetch(req, { info });
-  return { handler, store, scopeKey, kvStore, vectorStore };
 }
 
 export function createTestKvStore(): KvStore {
