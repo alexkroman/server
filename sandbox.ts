@@ -73,9 +73,6 @@ export async function createSandbox(
     worker as unknown as CapnwebPort,
   );
 
-  const wsFactory = (url: string, opts: { headers: Record<string, string> }) =>
-    new WebSocket(url, { headers: opts.headers }) as unknown as S2sWebSocket;
-
   // ─── Host-side RPC handlers ──────────────────────────────────────────
 
   // Fetch proxy with SSRF protection
@@ -84,14 +81,10 @@ export async function createSandbox(
       string,
       string,
       Record<string, string>,
-      string | undefined,
+      string?,
     ];
     await assertPublicUrl(fetchUrl);
-    const response = await fetch(fetchUrl, {
-      method,
-      headers,
-      ...(body ? { body } : {}),
-    });
+    const response = await fetch(fetchUrl, { method, headers, body });
     return {
       status: response.status,
       headers: Object.fromEntries(response.headers),
@@ -100,91 +93,70 @@ export async function createSandbox(
   });
 
   // Scoped KV operations
-  endpoint.handle("host.kv", async (args) => {
-    const [op, ...rest] = args as [string, ...unknown[]];
-    switch (op) {
-      case "get": {
-        const [key] = rest as [string];
-        const raw = await kvStore.get(scope, key);
-        if (raw === null) return null;
-        try {
-          return JSON.parse(raw);
-        } catch {
-          return raw;
-        }
-      }
-      case "set": {
-        const [key, value, expireIn] = rest as [
-          string,
-          unknown,
-          number | undefined,
-        ];
-        const ttl = expireIn ? Math.ceil(expireIn / 1000) : undefined;
-        await kvStore.set(scope, key, JSON.stringify(value), ttl);
-        return null;
-      }
-      case "del": {
-        const [key] = rest as [string];
-        await kvStore.del(scope, key);
-        return null;
-      }
-      case "list": {
-        const [prefix, limit, reverse] = rest as [
-          string,
-          number | undefined,
-          boolean | undefined,
-        ];
-        const entries = await kvStore.list(scope, prefix, {
-          ...(limit !== undefined ? { limit } : {}),
-          ...(reverse !== undefined ? { reverse } : {}),
-        });
-        return entries.map((e) => ({ key: e.key, value: e.value }));
-      }
-      default:
-        throw new Error(`Unknown KV op: ${op}`);
+  endpoint.handle("host.kv.get", async (args) => {
+    const [key] = args as [string];
+    const raw = await kvStore.get(scope, key);
+    if (raw === null) return null;
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return raw;
     }
+  });
+
+  endpoint.handle("host.kv.set", async (args) => {
+    const [key, value, expireIn] = args as [string, unknown, number?];
+    const ttl = expireIn ? Math.ceil(expireIn / 1000) : undefined;
+    await kvStore.set(scope, key, JSON.stringify(value), ttl);
+    return null;
+  });
+
+  endpoint.handle("host.kv.del", async (args) => {
+    const [key] = args as [string];
+    await kvStore.del(scope, key);
+    return null;
+  });
+
+  endpoint.handle("host.kv.list", async (args) => {
+    const [prefix, limit, reverse] = args as [string, number?, boolean?];
+    const opts: { limit?: number; reverse?: boolean } = {};
+    if (limit !== undefined) opts.limit = limit;
+    if (reverse !== undefined) opts.reverse = reverse;
+    return await kvStore.list(scope, prefix, opts);
   });
 
   // Scoped vector operations
-  endpoint.handle("host.vector", async (args) => {
-    const [op, ...rest] = args as [string, ...unknown[]];
+  endpoint.handle("host.vector.upsert", async (args) => {
     if (!vectorStore) throw new Error("Vector store not configured");
-    switch (op) {
-      case "upsert": {
-        const [id, data, metadata] = rest as [
-          string,
-          string,
-          Record<string, unknown> | undefined,
-        ];
-        await vectorStore.upsert(scope, id, data, metadata);
-        return null;
-      }
-      case "query": {
-        const [text, topK, filter] = rest as [
-          string,
-          number | undefined,
-          string | undefined,
-        ];
-        return await vectorStore.query(scope, text, topK, filter);
-      }
-      case "remove": {
-        const [ids] = rest as [string[]];
-        await vectorStore.remove(scope, ids);
-        return null;
-      }
-      default:
-        throw new Error(`Unknown vector op: ${op}`);
-    }
+    const [id, data, metadata] = args as [
+      string,
+      string,
+      Record<string, unknown>?,
+    ];
+    await vectorStore.upsert(scope, id, data, metadata);
+    return null;
+  });
+
+  endpoint.handle("host.vector.query", async (args) => {
+    if (!vectorStore) throw new Error("Vector store not configured");
+    const [text, topK, filter] = args as [string, number?, string?];
+    return await vectorStore.query(scope, text, topK, filter);
+  });
+
+  endpoint.handle("host.vector.remove", async (args) => {
+    if (!vectorStore) throw new Error("Vector store not configured");
+    const [ids] = args as [string[]];
+    await vectorStore.remove(scope, ids);
+    return null;
   });
 
   // S2S WebSocket creation — receives transferred port and bridges
-  endpoint.handle("host.createWebSocket", (_args, ports) => {
-    const [url, headersJson] = _args as [string, string];
-    const headers = JSON.parse(headersJson) as Record<string, string>;
+  endpoint.handle("host.createWebSocket", (args, ports) => {
+    const [url, headers] = args as [string, Record<string, string>];
     const port = ports[0];
     if (!port) throw new Error("No port transferred for WebSocket");
 
-    const ws = wsFactory(url, { headers });
+    const ws = new WebSocket(url, { headers }) as unknown as S2sWebSocket;
     bridgeS2sWebSocketToPort(ws, port);
     return null;
   });
