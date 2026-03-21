@@ -4,7 +4,7 @@ import { Hono } from "hono";
 import { createMiddleware } from "hono/factory";
 import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
-import type { AppState, Env } from "./context.ts";
+import type { Env } from "./context.ts";
 import { handleDeploy } from "./deploy.ts";
 import {
   handleSecretDelete,
@@ -49,15 +49,6 @@ export function createOrchestrator(opts: {
   vectorStore?: ServerVectorStore | undefined;
   scopeKey: ScopeKey;
 }): Hono<Env> {
-  const state: AppState = {
-    slots: new Map(),
-    sessions: new Map(),
-    store: opts.store,
-    kvStore: opts.kvStore,
-    vectorStore: opts.vectorStore,
-    scopeKey: opts.scopeKey,
-  };
-
   const app = new Hono<Env>();
 
   // --- Route middleware ---
@@ -72,7 +63,7 @@ export function createOrchestrator(opts: {
       "keyHash",
       await requireOwner(c.req.raw, {
         slug: c.get("slug"),
-        store: state.store,
+        store: c.env.deployStore,
       }),
     );
     await next();
@@ -89,14 +80,13 @@ export function createOrchestrator(opts: {
   });
 
   const scopeTokenMw = createMiddleware<Env>(async (c, next) => {
-    c.set("scope", await requireScopeToken(c.req.raw, state.scopeKey));
+    c.set("scope", await requireScopeToken(c.req.raw, c.env.scopeKey));
     await next();
   });
 
   // --- Global middleware ---
   app.use("*", cors());
   app.use("*", async (c, next) => {
-    c.set("state", state);
     await next();
     c.header("Cross-Origin-Opener-Policy", "same-origin");
     c.header("Cross-Origin-Embedder-Policy", "credentialless");
@@ -166,6 +156,22 @@ export function createOrchestrator(opts: {
   app.get("/:slug/websocket", upgradeMw, slugMw, handleWebSocket);
   app.get("/:slug/assets/:path{.+}", slugMw, handleClientAsset);
   app.get("/:slug/", slugMw, handleAgentPage);
+
+  // Bindings are injected at serve time via app.fetch(req, bindings)
+  const bindings = {
+    slots: new Map(),
+    deployStore: opts.store,
+    assetStore: opts.store,
+    scopeKey: opts.scopeKey,
+    kvStore: opts.kvStore,
+    vectorStore: opts.vectorStore,
+  };
+
+  // Wrap the app to auto-inject bindings
+  const original = app.fetch.bind(app);
+  app.fetch = (req: Request, env?: Record<string, unknown>) => {
+    return original(req, { ...bindings, ...env });
+  };
 
   return app;
 }

@@ -4,7 +4,6 @@ import { HTTPException } from "hono/http-exception";
 import type { Context } from "hono";
 import type { Env } from "./context.ts";
 import { type DeployBody, DeployBodySchema, EnvSchema } from "./_schemas.ts";
-import type { AgentSlot } from "./worker_pool.ts";
 
 /**
  * Handler for the agent deploy endpoint (`POST /:slug/deploy`).
@@ -14,7 +13,6 @@ import type { AgentSlot } from "./worker_pool.ts";
  * stored env. If not provided, the existing stored env is preserved.
  */
 export async function handleDeploy(c: Context<Env>): Promise<Response> {
-  const state = c.get("state");
   const slug = c.get("slug");
   const keyHash = c.get("keyHash");
 
@@ -26,7 +24,7 @@ export async function handleDeploy(c: Context<Env>): Promise<Response> {
   }
 
   // Merge env: deploy body env takes precedence, then stored env
-  const storedEnv = await state.store.getEnv(slug) ?? {};
+  const storedEnv = await c.env.deployStore.getEnv(slug) ?? {};
   const env = body.env ? { ...storedEnv, ...body.env } : storedEnv;
 
   const envParsed = EnvSchema.safeParse(env);
@@ -37,7 +35,7 @@ export async function handleDeploy(c: Context<Env>): Promise<Response> {
     );
   }
 
-  const existing = state.slots.get(slug);
+  const existing = c.env.slots.get(slug);
   if (existing?.sandbox) {
     log.info("Replacing existing deploy", { slug });
     existing.sandbox.terminate();
@@ -45,7 +43,7 @@ export async function handleDeploy(c: Context<Env>): Promise<Response> {
     delete existing.initializing;
   }
 
-  await state.store.putAgent({
+  await c.env.deployStore.putAgent({
     slug,
     env,
     worker: body.worker,
@@ -53,11 +51,7 @@ export async function handleDeploy(c: Context<Env>): Promise<Response> {
     credential_hashes: [keyHash],
   });
 
-  const slot: AgentSlot = {
-    slug,
-    keyHash,
-  };
-  state.slots.set(slug, slot);
+  c.env.slots.set(slug, { slug, keyHash });
 
   log.info("Deploy received", { slug });
 

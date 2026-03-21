@@ -1,12 +1,13 @@
 // Copyright 2025 the AAI authors. MIT license.
 import { HTTPException } from "hono/http-exception";
+import { matchSubnets } from "@std/net/unstable-ip";
 import { verifySlugOwner } from "./auth.ts";
 import {
   type AgentScope,
   type ScopeKey,
   verifyScopeToken,
 } from "./scope_token.ts";
-import type { BundleStore } from "./bundle_store_tigris.ts";
+import type { DeployStore } from "./bundle_store_tigris.ts";
 
 const VALID_SLUG_REGEXP = /^[a-z0-9][a-z0-9_-]{0,62}[a-z0-9]$/;
 
@@ -27,7 +28,7 @@ export function validateSlug(slug: string): string {
 /** Verify the request has a valid owner credential for the slug. Returns the API key hash. */
 export async function requireOwner(
   req: Request,
-  opts: { slug: string; store: BundleStore },
+  opts: { slug: string; store: DeployStore },
 ): Promise<string> {
   const apiKey = bearerToken(req);
   if (!apiKey) {
@@ -67,16 +68,18 @@ export function requireInternal(
   }
 }
 
+const PRIVATE_CIDRS = [
+  "10.0.0.0/8",
+  "127.0.0.0/8",
+  "172.16.0.0/12",
+  "192.168.0.0/16",
+  "::1/128",
+  "fdaa::/16", // Fly.io private network
+];
+
 function isPrivateIp(ip: string): boolean {
   if (!ip) return false;
-  return (
-    ip === "127.0.0.1" ||
-    ip === "::1" ||
-    ip.startsWith("10.") ||
-    ip.startsWith("172.") ||
-    ip.startsWith("192.168.") ||
-    ip.startsWith("fdaa:") // Fly.io private network
-  );
+  return matchSubnets(ip, PRIVATE_CIDRS);
 }
 
 /** Verify scope token from Authorization header. Returns the decoded scope. */

@@ -12,7 +12,7 @@ import { type KvHttpRequest, KvHttpRequestSchema } from "./_schemas.ts";
  * KV store, scoped to the requesting agent.
  */
 export async function handleKv(c: Context<Env>): Promise<Response> {
-  const { kvStore } = c.get("state");
+  const { kvStore } = c.env;
   const scope = c.get("scope");
 
   let msg: KvHttpRequest;
