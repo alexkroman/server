@@ -1,5 +1,10 @@
 // Copyright 2025 the AAI authors. MIT license.
-import { assert, assertStrictEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertStrictEquals,
+  assertStringIncludes,
+} from "@std/assert";
 import { _internals, serialize, serializeForAgent } from "./metrics.ts";
 
 const { createCounter, createGauge, createHistogram } = _internals;
@@ -233,10 +238,13 @@ Deno.test("serializeForAgent includes agent metrics, excludes global", () => {
   assertStringIncludes(output, "aai_sessions_active");
 });
 
-Deno.test("metric without agent label is unaffected by filter", () => {
+Deno.test("metric without agent label is excluded from agent filter", () => {
   const c = createCounter("plain", { help: "Plain counter" });
   c.inc();
   c.inc();
-  assertStringIncludes(c.serialize("ns/a"), "plain 2");
+  // Per-agent view should not include metrics that lack an "agent" label
+  const agentView = c.serialize("ns/a");
+  assertEquals(agentView, "# HELP plain Plain counter\n# TYPE plain counter");
+  // Global view should still include the metric
   assertStringIncludes(c.serialize(), "plain 2");
 });

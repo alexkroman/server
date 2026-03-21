@@ -5,7 +5,9 @@ import {
   assertStrictEquals,
   assertStringIncludes,
 } from "@std/assert";
-import type { AppState } from "./context.ts";
+import { Hono } from "hono";
+import { HTTPException } from "hono/http-exception";
+import type { Env } from "./context.ts";
 import { handleKv } from "./kv_handler.ts";
 
 // --- helpers ---
@@ -41,29 +43,33 @@ function createMockKvStore() {
 
 const SCOPE = { slug: "test-agent", keyHash: "abc" };
 
-function makeReq(body: unknown): Request {
-  return new Request("http://localhost/kv", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+function createTestApp(kvStore: ReturnType<typeof createMockKvStore>) {
+  const app = new Hono<Env>();
+  app.use("*", async (c, next) => {
+    c.set("state", { kvStore } as never);
+    c.set("scope", SCOPE);
+    await next();
   });
+  app.onError((err, c) => {
+    if (err instanceof HTTPException) {
+      return c.json({ error: err.message }, err.status);
+    }
+    return c.json({ error: "unexpected" }, 500);
+  });
+  app.post("/kv", handleKv);
+  return app;
 }
 
 async function postKv(
   kvStore: ReturnType<typeof createMockKvStore>,
   body: unknown,
 ): Promise<{ status: number; json: Record<string, unknown> }> {
-  const req = makeReq(body);
-  const state = { kvStore } as unknown as AppState;
-
-  let res: Response;
-  try {
-    res = await handleKv(req, state, SCOPE);
-  } catch (err: unknown) {
-    const status = (err as { status?: number }).status ?? 500;
-    const message = (err as Error).message ?? "Unknown error";
-    return { status, json: { error: message } };
-  }
+  const app = createTestApp(kvStore);
+  const res = await app.request("/kv", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
   return {
     status: res.status,
     json: (await res.json()) as Record<string, unknown>,
@@ -213,6 +219,7 @@ Deno.test("kv list: accepts limit and reverse options", async () => {
 
 Deno.test("kv: returns 500 when store throws", async () => {
   const kvStore = {
+    store: new Map(),
     get: () => Promise.reject(new Error("db down")),
     set: () => Promise.reject(new Error("db down")),
     del: () => Promise.reject(new Error("db down")),
@@ -220,16 +227,8 @@ Deno.test("kv: returns 500 when store throws", async () => {
     list: () => Promise.reject(new Error("db down")),
   };
 
-  const req = new Request("http://localhost/kv", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ op: "get", key: "x" }),
-  });
-  const state = { kvStore } as unknown as AppState;
-
-  const res = await handleKv(req, state, SCOPE);
-  assertStrictEquals(res.status, 500);
-  const json = (await res.json()) as Record<string, unknown>;
+  const { status, json } = await postKv(kvStore, { op: "get", key: "x" });
+  assertStrictEquals(status, 500);
   assertStringIncludes(json.error as string, "KV operation failed");
   assertStringIncludes(json.error as string, "db down");
 });

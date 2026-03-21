@@ -4,7 +4,7 @@ import { createTestStore, VALID_ENV } from "./_test_utils.ts";
 
 Deno.test("TigrisBundleStore", async (t) => {
   await t.step("put + get round-trip", async () => {
-    using store = createTestStore();
+    const store = createTestStore();
     await store.putAgent({
       slug: "hello",
       env: VALID_ENV,
@@ -28,7 +28,7 @@ Deno.test("TigrisBundleStore", async (t) => {
   });
 
   await t.step("deleteAgent removes all data", async () => {
-    using store = createTestStore();
+    const store = createTestStore();
     await store.putAgent({
       slug: "gone",
       env: VALID_ENV,
@@ -44,7 +44,7 @@ Deno.test("TigrisBundleStore", async (t) => {
   });
 
   await t.step("overwrite replaces existing agent", async () => {
-    using store = createTestStore();
+    const store = createTestStore();
     await store.putAgent({
       slug: "x",
       env: VALID_ENV,
@@ -66,7 +66,7 @@ Deno.test("TigrisBundleStore", async (t) => {
   });
 
   await t.step("handles large strings without chunking", async () => {
-    using store = createTestStore();
+    const store = createTestStore();
     const big = "x".repeat(150_000);
     await store.putAgent({
       slug: "big",
@@ -82,7 +82,7 @@ Deno.test("TigrisBundleStore", async (t) => {
   });
 
   await t.step("missing slug returns null", async () => {
-    using store = createTestStore();
+    const store = createTestStore();
     assertStrictEquals(await store.getManifest("nope"), null);
     assertStrictEquals(await store.getFile("nope", "worker"), null);
     assertStrictEquals(await store.getClientFile("nope", "index.html"), null);

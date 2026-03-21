@@ -100,9 +100,6 @@ export function createTestStore(): BundleStore {
       );
       return Promise.resolve();
     },
-
-    close() {},
-    [Symbol.dispose]() {},
   };
 }
 

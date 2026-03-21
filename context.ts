@@ -1,20 +1,26 @@
 // Copyright 2025 the AAI authors. MIT license.
-import { STATUS_CODE } from "@std/http/status";
+import type { Context } from "hono";
 import type { AgentSlot } from "./worker_pool.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
 import type { Session } from "@aai/sdk/session";
 import type { ScopeKey } from "./scope_token.ts";
 import type { KvStore } from "./kv.ts";
 import type { ServerVectorStore } from "./vector.ts";
+import type { AgentScope } from "./scope_token.ts";
 
-/** HTTP error with a status code, thrown by handlers and middleware helpers. */
-export class HttpError extends Error {
-  status: number;
-  constructor(status: number, message: string) {
-    super(message);
-    this.status = status;
-  }
-}
+/** Hono environment type shared across all routes and handlers. */
+export type Env = {
+  Bindings: { info: Deno.ServeHandlerInfo };
+  Variables: {
+    state: AppState;
+    slug: string;
+    keyHash: string;
+    scope: AgentScope;
+  };
+};
+
+/** Hono handler type shorthand. */
+export type Handler = (c: Context<Env>) => Response | Promise<Response>;
 
 /** Shared server state passed to all route handlers. */
 export type AppState = {
@@ -25,22 +31,3 @@ export type AppState = {
   kvStore: KvStore;
   vectorStore?: ServerVectorStore | undefined;
 };
-
-/** Create a JSON response. */
-export function json(
-  data: unknown,
-  opts?: { status?: number; headers?: Record<string, string> },
-): Response {
-  return new Response(JSON.stringify(data), {
-    status: opts?.status ?? STATUS_CODE.OK,
-    headers: { "Content-Type": "application/json", ...opts?.headers },
-  });
-}
-
-/** Create an HTML response. */
-export function html(body: string, status = STATUS_CODE.OK): Response {
-  return new Response(body, {
-    status,
-    headers: { "Content-Type": "text/html; charset=utf-8" },
-  });
-}

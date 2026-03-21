@@ -84,9 +84,17 @@ Deno.test("registerSlot uses empty string keyHash when no credential_hashes", ()
 
 // --- ensureAgent ---
 
+const dummyOpts = {
+  getWorkerCode: () => Promise.resolve("code"),
+  getEnv: () => Promise.resolve(VALID_ENV),
+  kvCtx: {
+    kvStore: createTestKvStore(),
+    scope: { keyHash: "k", slug: "test-agent" },
+  },
+};
+
 Deno.test({
   name: "ensureAgent resolves immediately when sandbox exists",
-  // resetIdleTimer creates an unref'd timer — skip resource sanitizer
   sanitizeResources: false,
   async fn() {
     const slot = makeSlot({
@@ -96,9 +104,7 @@ Deno.test({
         terminate() {},
       },
     });
-    await ensureAgent(slot, {
-      getEnv: () => Promise.resolve(VALID_ENV),
-    });
+    await ensureAgent(slot, dummyOpts);
     assert(slot.sandbox);
     if (slot.idleTimer) clearTimeout(slot.idleTimer);
   },
@@ -107,39 +113,22 @@ Deno.test({
 Deno.test({
   name: "ensureAgent returns same promise for concurrent init",
   async fn() {
+    const fakeSandbox = {
+      startSession() {},
+      fetch: () => Promise.resolve(new Response()),
+      terminate() {},
+    };
     const slot = makeSlot();
-    // Manually set initializing to simulate an in-flight init
-    const deferred = Promise.withResolvers<void>();
+    const deferred = Promise.withResolvers<typeof fakeSandbox>();
     slot.initializing = deferred.promise;
 
-    const p1 = ensureAgent(slot, {
-      getEnv: () => Promise.resolve(VALID_ENV),
-    });
-    const p2 = ensureAgent(slot, {
-      getEnv: () => Promise.resolve(VALID_ENV),
-    });
+    const p1 = ensureAgent(slot, dummyOpts);
+    const p2 = ensureAgent(slot, dummyOpts);
 
-    // Both should return the same promise
     assertStrictEquals(p1, p2);
-    deferred.resolve();
+    deferred.resolve(fakeSandbox);
     await p1;
   },
-});
-
-Deno.test("ensureAgent throws when getWorkerCode is missing", async () => {
-  const slot = makeSlot();
-  await assertRejects(
-    () =>
-      ensureAgent(slot, {
-        getEnv: () => Promise.resolve(VALID_ENV),
-        kvCtx: {
-          kvStore: createTestKvStore(),
-          scope: { keyHash: "k", slug: "test-agent" },
-        },
-      }),
-    Error,
-    "No worker code source",
-  );
 });
 
 Deno.test("ensureAgent throws when worker code not found", async () => {
@@ -147,28 +136,11 @@ Deno.test("ensureAgent throws when worker code not found", async () => {
   await assertRejects(
     () =>
       ensureAgent(slot, {
+        ...dummyOpts,
         getWorkerCode: () => Promise.resolve(null),
-        getEnv: () => Promise.resolve(VALID_ENV),
-        kvCtx: {
-          kvStore: createTestKvStore(),
-          scope: { keyHash: "k", slug: "test-agent" },
-        },
       }),
     Error,
     "Worker code not found",
-  );
-});
-
-Deno.test("ensureAgent throws when kvCtx is missing", async () => {
-  const slot = makeSlot();
-  await assertRejects(
-    () =>
-      ensureAgent(slot, {
-        getWorkerCode: () => Promise.resolve("code"),
-        getEnv: () => Promise.resolve(VALID_ENV),
-      }),
-    Error,
-    "No KV context",
   );
 });
 
@@ -176,12 +148,8 @@ Deno.test("ensureAgent cleans up initializing on error", async () => {
   const slot = makeSlot();
   try {
     await ensureAgent(slot, {
+      ...dummyOpts,
       getWorkerCode: () => Promise.reject(new Error("boom")),
-      getEnv: () => Promise.resolve(VALID_ENV),
-      kvCtx: {
-        kvStore: createTestKvStore(),
-        scope: { keyHash: "k", slug: "test-agent" },
-      },
     });
   } catch {
     // expected

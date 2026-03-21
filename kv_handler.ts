@@ -1,9 +1,9 @@
 // Copyright 2025 the AAI authors. MIT license.
 import * as log from "@std/log";
-import { STATUS_CODE } from "@std/http/status";
-import { type AppState, HttpError, json } from "./context.ts";
+import { HTTPException } from "hono/http-exception";
+import type { Context } from "hono";
+import type { Env } from "./context.ts";
 import { type KvHttpRequest, KvHttpRequestSchema } from "./_schemas.ts";
-import type { AgentScope } from "./scope_token.ts";
 
 /**
  * Handler for the KV operations endpoint (`POST /:slug/kv`).
@@ -11,33 +11,31 @@ import type { AgentScope } from "./scope_token.ts";
  * Dispatches `get`, `set`, `del`, `keys`, and `list` operations to the
  * KV store, scoped to the requesting agent.
  */
-export async function handleKv(
-  req: Request,
-  state: AppState,
-  scope: AgentScope,
-): Promise<Response> {
-  const { kvStore } = state;
+export async function handleKv(c: Context<Env>): Promise<Response> {
+  const { kvStore } = c.get("state");
+  const scope = c.get("scope");
+
   let msg: KvHttpRequest;
   try {
-    msg = KvHttpRequestSchema.parse(await req.json());
+    msg = KvHttpRequestSchema.parse(await c.req.json());
   } catch {
-    throw new HttpError(STATUS_CODE.BadRequest, "Invalid request");
+    throw new HTTPException(400, { message: "Invalid request" });
   }
 
   try {
     switch (msg.op) {
       case "get":
-        return json({ result: await kvStore.get(scope, msg.key) });
+        return c.json({ result: await kvStore.get(scope, msg.key) });
       case "set":
         await kvStore.set(scope, msg.key, msg.value, msg.ttl);
-        return json({ result: "OK" });
+        return c.json({ result: "OK" });
       case "del":
         await kvStore.del(scope, msg.key);
-        return json({ result: "OK" });
+        return c.json({ result: "OK" });
       case "keys":
-        return json({ result: await kvStore.keys(scope, msg.pattern) });
+        return c.json({ result: await kvStore.keys(scope, msg.pattern) });
       case "list":
-        return json({
+        return c.json({
           result: await kvStore.list(scope, msg.prefix, {
             ...(msg.limit !== undefined && { limit: msg.limit }),
             ...(msg.reverse !== undefined && { reverse: msg.reverse }),
@@ -51,8 +49,6 @@ export async function handleKv(
       slug: scope.slug,
       error: message,
     });
-    return json({ error: `KV operation failed: ${message}` }, {
-      status: STATUS_CODE.InternalServerError,
-    });
+    return c.json({ error: `KV operation failed: ${message}` }, 500);
   }
 }
