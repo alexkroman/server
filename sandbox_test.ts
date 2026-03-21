@@ -101,7 +101,6 @@ const KV_WORKER = `
 import { CapnwebEndpoint } from "@aai/sdk/capnweb";
 
 const endpoint = new CapnwebEndpoint(globalThis);
-let kvResult = null;
 
 endpoint.handle("worker.init", () => null);
 
