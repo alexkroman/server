@@ -3,7 +3,7 @@ import type { BundleStore } from "./bundle_store_tigris.ts";
 import { importScopeKey, type ScopeKey } from "./scope_token.ts";
 import type { KvStore } from "./kv.ts";
 import type { ServerVectorStore } from "./vector.ts";
-import type { AgentMetadata, AgentSlot } from "./worker_pool.ts";
+import type { AgentMetadata, AgentSlot } from "./sandbox.ts";
 import { sortAndPaginate } from "@aai/sdk/kv";
 import { AgentMetadataSchema } from "./_schemas.ts";
 import { createOrchestrator } from "./orchestrator.ts";
@@ -57,15 +57,9 @@ export function createTestStore(): BundleStore {
       return Promise.resolve(parsed.data as AgentMetadata);
     },
 
-    getFile(slug, file) {
-      const fileNames: Record<string, string> = {
-        worker: "worker.js",
-        html: "index.html",
-      };
-      const fileName = fileNames[file];
-      if (!fileName) return Promise.resolve(null);
+    getWorkerCode(slug) {
       return Promise.resolve(
-        objects.get(objectKey(slug, fileName)) ?? null,
+        objects.get(objectKey(slug, "worker.js")) ?? null,
       );
     },
 

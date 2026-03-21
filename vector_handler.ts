@@ -13,7 +13,7 @@ import { VectorHttpRequestSchema } from "./_schemas.ts";
  * the vector store and by external clients to query it.
  */
 export async function handleVector(c: Context<Env>): Promise<Response> {
-  const { vectorStore } = c.get("state");
+  const { vectorStore } = c.env;
   const scope = { keyHash: c.get("keyHash"), slug: c.get("slug") };
 
   if (!vectorStore) {
@@ -43,6 +43,9 @@ export async function handleVector(c: Context<Env>): Promise<Response> {
             msg.filter,
           ),
         });
+      case "remove":
+        await vectorStore.remove(scope, msg.ids);
+        return c.json({ result: "OK" });
     }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);

@@ -20,7 +20,7 @@ Deno.test("TigrisBundleStore", async (t) => {
       credential_hashes: ["hash1"],
     });
 
-    const worker = await store.getFile("hello", "worker");
+    const worker = await store.getWorkerCode("hello");
     assertStrictEquals(worker, "console.log('worker');");
 
     const html = await store.getClientFile("hello", "index.html");
@@ -39,7 +39,7 @@ Deno.test("TigrisBundleStore", async (t) => {
     await store.deleteAgent("gone");
 
     assertStrictEquals(await store.getManifest("gone"), null);
-    assertStrictEquals(await store.getFile("gone", "worker"), null);
+    assertStrictEquals(await store.getWorkerCode("gone"), null);
     assertStrictEquals(await store.getClientFile("gone", "index.html"), null);
   });
 
@@ -62,7 +62,7 @@ Deno.test("TigrisBundleStore", async (t) => {
 
     const manifest = await store.getManifest("x");
     assertStrictEquals(manifest!.env.EXTRA, "val");
-    assertStrictEquals(await store.getFile("x", "worker"), "new");
+    assertStrictEquals(await store.getWorkerCode("x"), "new");
   });
 
   await t.step("handles large strings without chunking", async () => {
@@ -76,7 +76,7 @@ Deno.test("TigrisBundleStore", async (t) => {
       credential_hashes: [],
     });
 
-    const result = await store.getFile("big", "worker");
+    const result = await store.getWorkerCode("big");
     assertStrictEquals(result, big);
     assertStrictEquals(result!.length, 150_000);
   });
@@ -84,7 +84,7 @@ Deno.test("TigrisBundleStore", async (t) => {
   await t.step("missing slug returns null", async () => {
     const store = createTestStore();
     assertStrictEquals(await store.getManifest("nope"), null);
-    assertStrictEquals(await store.getFile("nope", "worker"), null);
+    assertStrictEquals(await store.getWorkerCode("nope"), null);
     assertStrictEquals(await store.getClientFile("nope", "index.html"), null);
   });
 });

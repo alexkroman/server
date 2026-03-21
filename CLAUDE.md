@@ -28,8 +28,8 @@ orchestration logic.
 ### Key Files
 
 - `orchestrator.ts` — deploy, health, WebSocket, landing page routes
-- `worker_pool.ts` — spawns agent code in sandboxed Deno Workers (all
-  permissions false), idle eviction, hosts fetch proxy handler
+- `sandbox.ts` — sandboxed Deno Workers (all permissions false), idle eviction,
+  host-side RPC bindings (fetch proxy, KV, vector)
 - `transport_websocket.ts` — WebSocket transport handler
 - `session_s2s.ts` — thin wrapper over `aai/session`, injects metrics
 - `ws_handler.ts` — thin wrapper over `aai/ws-handler`, injects logger

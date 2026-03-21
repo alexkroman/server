@@ -193,9 +193,9 @@ Deno.test("websocket upgrades for deployed agent", async () => {
       response: new Response(null, { status: 101 }),
     }),
   );
-  using _prepareStub = stub(
+  using _resolveStub = stub(
     _wsInternals,
-    "prepareSession",
+    "resolveSandbox",
     (() =>
       Promise.resolve({
         startSession: () => {},

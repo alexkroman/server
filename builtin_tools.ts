@@ -4,7 +4,7 @@
  *
  * Built-in tool definitions have moved to `@aai/sdk/builtin-tools`.
  * This module retains only the URL validation logic used by the host-side
- * fetch proxy in `worker_pool.ts`.
+ * fetch proxy in `sandbox.ts`.
  *
  * @module
  */
