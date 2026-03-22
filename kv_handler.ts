@@ -5,12 +5,6 @@ import type { Context } from "hono";
 import type { Env } from "./context.ts";
 import { type KvHttpRequest, KvHttpRequestSchema } from "./_schemas.ts";
 
-/**
- * Handler for the KV operations endpoint (`POST /:slug/kv`).
- *
- * Dispatches `get`, `set`, `del`, `keys`, and `list` operations to the
- * KV store, scoped to the requesting agent.
- */
 export async function handleKv(c: Context<Env>): Promise<Response> {
   const { kvStore } = c.get("state");
   const scope = c.get("scope");

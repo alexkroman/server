@@ -13,13 +13,6 @@ export type OwnerResult =
   | { status: "owned"; keyHash: string }
   | { status: "forbidden" };
 
-/**
- * Verify API key ownership of a slug via its manifest.
- *
- * - If no manifest exists (unclaimed slug), returns `{ status: "unclaimed", keyHash }`.
- * - If the manifest has credential_hashes and the key matches, returns `{ status: "owned", keyHash }`.
- * - If the key doesn't match, returns `{ status: "forbidden" }`.
- */
 export async function verifySlugOwner(
   apiKey: string,
   opts: { slug: string; store: BundleStore },

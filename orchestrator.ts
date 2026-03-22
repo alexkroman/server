@@ -37,12 +37,6 @@ import {
   validateSlug,
 } from "./middleware.ts";
 
-/**
- * Creates the main HTTP request handler for the orchestrator server.
- *
- * Sets up all routes including agent deploy, WebSocket transport,
- * health checks, KV operations, and static file serving.
- */
 export function createOrchestrator(opts: {
   store: BundleStore;
   kvStore: KvStore;
@@ -59,8 +53,6 @@ export function createOrchestrator(opts: {
   };
 
   const app = new Hono<Env>();
-
-  // --- Route middleware ---
 
   const slugMw = createMiddleware<Env>(async (c, next) => {
     c.set("slug", validateSlug(c.req.param("slug")!));
@@ -93,7 +85,6 @@ export function createOrchestrator(opts: {
     await next();
   });
 
-  // --- Global middleware ---
   app.use("*", cors());
   app.use("*", async (c, next) => {
     c.set("state", state);
@@ -120,7 +111,6 @@ export function createOrchestrator(opts: {
     }
   });
 
-  // --- Global error handler ---
   app.onError((err, c) => {
     if (err instanceof HTTPException) {
       return c.json({ error: err.message }, err.status);
@@ -132,7 +122,6 @@ export function createOrchestrator(opts: {
     return c.json({ error: "Internal server error" }, 500);
   });
 
-  // --- Public routes ---
   app.get("/health", (c) => c.json({ status: "ok" }));
 
   app.get("/metrics", internalMw, (c) => {
@@ -141,14 +130,12 @@ export function createOrchestrator(opts: {
     });
   });
 
-  // --- Agent page redirect (bare slug → trailing slash) ---
   app.get("/:slug{[a-z0-9][a-z0-9_-]*[a-z0-9]}", (c) => {
     const url = new URL(c.req.url);
     url.pathname += "/";
     return c.redirect(url.toString(), 301);
   });
 
-  // --- Agent routes ---
   app.post("/:slug/deploy", slugMw, ownerMw, handleDeploy);
   app.get("/:slug/secret", slugMw, ownerMw, handleSecretList);
   app.put("/:slug/secret", slugMw, ownerMw, handleSecretSet);

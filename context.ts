@@ -3,12 +3,10 @@ import type { Context } from "hono";
 import type { AgentSlot } from "./worker_pool.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
 import type { Session } from "@aai/sdk/session";
-import type { ScopeKey } from "./scope_token.ts";
+import type { AgentScope, ScopeKey } from "./scope_token.ts";
 import type { KvStore } from "./kv.ts";
 import type { ServerVectorStore } from "./vector.ts";
-import type { AgentScope } from "./scope_token.ts";
 
-/** Hono environment type shared across all routes and handlers. */
 export type Env = {
   Bindings: { info: Deno.ServeHandlerInfo };
   Variables: {
@@ -19,10 +17,8 @@ export type Env = {
   };
 };
 
-/** Hono handler type shorthand. */
 export type Handler = (c: Context<Env>) => Response | Promise<Response>;
 
-/** Shared server state passed to all route handlers. */
 export type AppState = {
   slots: Map<string, AgentSlot>;
   sessions: Map<string, Session>;

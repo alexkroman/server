@@ -1,37 +1,28 @@
 // Copyright 2025 the AAI authors. MIT license.
-// Zod validation schemas for server-side use.
-// These validate untrusted input at HTTP/WebSocket boundaries.
+// Zod schemas — validate untrusted input at HTTP/WebSocket boundaries.
 
 import { z } from "zod";
 
-/** Zod schema for validating the deploy request body. */
 export const DeployBodySchema = z.object({
   env: z.record(z.string(), z.string()).optional(),
   worker: z.string().min(1).max(10_000_000),
   clientFiles: z.record(z.string(), z.string()),
 });
-
-/** Deploy request body sent by the CLI. */
 export type DeployBody = z.infer<typeof DeployBodySchema>;
 
-/** Zod schema for validating agent environment variables (requires `ASSEMBLYAI_API_KEY`). */
 export const EnvSchema = z.object({
   ASSEMBLYAI_API_KEY: z.string().min(1),
 }).catchall(z.string());
 
-/** Zod schema for validating agent metadata from the bundle store. */
 export const AgentMetadataSchema = z.object({
   slug: z.string(),
   env: z.record(z.string(), z.string()).default({}),
   credential_hashes: z.array(z.string()).default([]),
 });
-
-/** Metadata stored alongside an agent bundle in the bundle store. */
 export type AgentMetadata = z.infer<typeof AgentMetadataSchema>;
 
-// ─── KV schemas ─────────────────────────────────────────────────────────────
+// ─── KV ─────────────────────────────────────────────────────────────────────
 
-/** Zod schema for validating KV HTTP request bodies (get, set, del, list, keys). */
 export const KvHttpRequestSchema = z
   .discriminatedUnion("op", [
     z.object({ op: z.literal("get"), key: z.string().min(1) }),
@@ -50,13 +41,10 @@ export const KvHttpRequestSchema = z
     }),
     z.object({ op: z.literal("keys"), pattern: z.string().optional() }),
   ]);
-
-/** KV HTTP request type (core ops + server-only `keys`). */
 export type KvHttpRequest = z.infer<typeof KvHttpRequestSchema>;
 
-// ─── Vector schemas ──────────────────────────────────────────────────────────
+// ─── Vector ─────────────────────────────────────────────────────────────────
 
-/** Zod schema for validating Vector HTTP request bodies (upsert, query). */
 export const VectorHttpRequestSchema = z
   .discriminatedUnion("op", [
     z.object({
@@ -72,11 +60,8 @@ export const VectorHttpRequestSchema = z
       filter: z.string().optional(),
     }),
   ]);
-
-/** Vector HTTP request type (upsert, query). */
 export type VectorHttpRequest = z.infer<typeof VectorHttpRequestSchema>;
 
-// ─── Secret schemas ─────────────────────────────────────────────────────────
+// ─── Secrets ────────────────────────────────────────────────────────────────
 
-/** Zod schema for validating secret update bodies (string key-value pairs). */
 export const SecretUpdatesSchema = z.record(z.string(), z.string());

@@ -22,12 +22,9 @@ export type BundleStore = {
   }): Promise<void>;
   getManifest(slug: string): Promise<AgentMetadata | null>;
   getFile(slug: string, file: FileKey): Promise<string | null>;
-  /** Get a client build file by relative path (e.g. "index.html", "assets/index-abc.js"). */
   getClientFile(slug: string, filePath: string): Promise<string | null>;
   deleteAgent(slug: string): Promise<void>;
-  /** Read env vars for a slug from the stored manifest. */
   getEnv(slug: string): Promise<Record<string, string> | null>;
-  /** Update env vars for a slug without redeploying the worker. */
   putEnv(slug: string, env: Record<string, string>): Promise<void>;
 };
 
@@ -149,7 +146,6 @@ export function createBundleStore(
     }
   }
 
-  /** Fetch and JSON-parse the raw manifest for a slug. */
   async function getRawManifest(
     slug: string,
   ): Promise<Record<string, unknown> | null> {

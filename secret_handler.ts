@@ -14,9 +14,6 @@ function restartSandbox(state: AppState, slug: string, reason: string): void {
   }
 }
 
-/**
- * GET /:slug/secret — list secret names (values masked).
- */
 export async function handleSecretList(c: Context<Env>): Promise<Response> {
   const state = c.get("state");
   const slug = c.get("slug");
@@ -26,14 +23,9 @@ export async function handleSecretList(c: Context<Env>): Promise<Response> {
     throw new HTTPException(404, { message: `Agent ${slug} not found` });
   }
 
-  // Return names only — never expose values over the wire
   return c.json({ vars: Object.keys(env) });
 }
 
-/**
- * PUT /:slug/secret — set one or more secrets.
- * Body: { "KEY": "value", "KEY2": "value2" }
- */
 export async function handleSecretSet(c: Context<Env>): Promise<Response> {
   const state = c.get("state");
   const slug = c.get("slug");
@@ -46,7 +38,6 @@ export async function handleSecretSet(c: Context<Env>): Promise<Response> {
   }
   const updates = parsed.data;
 
-  // Merge with existing env
   const existing = await state.store.getEnv(slug) ?? {};
   const merged = { ...existing, ...updates };
   await state.store.putEnv(slug, merged);
@@ -56,9 +47,6 @@ export async function handleSecretSet(c: Context<Env>): Promise<Response> {
   return c.json({ ok: true, keys: Object.keys(merged) });
 }
 
-/**
- * DELETE /:slug/secret/:key — remove a single secret.
- */
 export async function handleSecretDelete(c: Context<Env>): Promise<Response> {
   const state = c.get("state");
   const slug = c.get("slug");

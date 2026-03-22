@@ -9,12 +9,6 @@ import type { BundleStore } from "./bundle_store_tigris.ts";
 
 export const _internals = { prepareSession };
 
-/**
- * Discovers an agent slot, lazily loading it from the bundle store if needed.
- *
- * If the slot is already registered in memory, returns it immediately.
- * Otherwise, checks the bundle store for a manifest and registers the slot.
- */
 type SlotLookup = { slots: Map<string, AgentSlot>; store: BundleStore };
 
 export async function discoverSlot(
@@ -42,7 +36,6 @@ async function requireSlot(
   return slot;
 }
 
-/** Handler for the agent health check endpoint (`GET /:slug/health`). */
 export async function handleAgentHealth(c: Context<Env>): Promise<Response> {
   const state = c.get("state");
   const slug = c.get("slug");
@@ -50,7 +43,6 @@ export async function handleAgentHealth(c: Context<Env>): Promise<Response> {
   return c.json({ status: "ok", slug });
 }
 
-/** Handler for the agent landing page (`GET /:slug`). */
 export async function handleAgentPage(c: Context<Env>): Promise<Response> {
   const state = c.get("state");
   const slug = c.get("slug");
@@ -60,7 +52,6 @@ export async function handleAgentPage(c: Context<Env>): Promise<Response> {
   return c.html(page);
 }
 
-/** Handler for serving client static assets (`GET /:slug/assets/*`). */
 export async function handleClientAsset(c: Context<Env>): Promise<Response> {
   const state = c.get("state");
   const slug = c.get("slug");
@@ -78,7 +69,6 @@ export async function handleClientAsset(c: Context<Env>): Promise<Response> {
   });
 }
 
-/** Handler that upgrades an HTTP request to a WebSocket session. */
 export async function handleWebSocket(c: Context<Env>): Promise<Response> {
   const state = c.get("state");
   const slug = c.get("slug");

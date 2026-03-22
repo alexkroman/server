@@ -1,17 +1,7 @@
 // Copyright 2025 the AAI authors. MIT license.
-/**
- * Scope tokens are HMAC-SHA256 signed JWTs encoding agent ownership.
- * Uses crypto.subtle directly — no external dependencies.
- */
-
 import { decodeBase64Url, encodeBase64Url } from "@std/encoding/base64url";
 
-export type AgentScope = {
-  keyHash: string;
-  slug: string;
-};
-
-/** Opaque key type for scope token operations. */
+export type AgentScope = { keyHash: string; slug: string };
 export type ScopeKey = CryptoKey;
 
 const enc = new TextEncoder();

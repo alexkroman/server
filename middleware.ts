@@ -17,7 +17,6 @@ function bearerToken(req: Request): string | null {
   return header.slice(7) || null;
 }
 
-/** Validate slug URL param and return it. */
 export function validateSlug(slug: string): string {
   if (!VALID_SLUG_REGEXP.test(slug)) {
     throw new HTTPException(400, { message: "Invalid slug" });
@@ -25,7 +24,6 @@ export function validateSlug(slug: string): string {
   return slug;
 }
 
-/** Verify the request has a valid owner credential for the slug. Returns the API key hash. */
 export async function requireOwner(
   req: Request,
   opts: { slug: string; store: BundleStore },
@@ -48,14 +46,12 @@ export async function requireOwner(
   return result.keyHash;
 }
 
-/** Require WebSocket upgrade header. */
 export function requireUpgrade(req: Request): void {
   if (req.headers.get("upgrade")?.toLowerCase() !== "websocket") {
     throw new HTTPException(400, { message: "Expected WebSocket upgrade" });
   }
 }
 
-/** Only allow requests from loopback / private addresses (Fly internal network, etc.). */
 export function requireInternal(
   req: Request,
   info: Deno.ServeHandlerInfo,
@@ -68,7 +64,6 @@ export function requireInternal(
   }
 }
 
-/** Verify scope token from Authorization header. Returns the decoded scope. */
 export async function requireScopeToken(
   req: Request,
   scopeKey: ScopeKey,

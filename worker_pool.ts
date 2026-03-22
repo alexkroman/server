@@ -10,20 +10,11 @@ import { createSandbox, type Sandbox } from "./sandbox.ts";
 
 const IDLE_MS = 5 * 60 * 1000;
 
-/**
- * Runtime state for a deployed agent, including its sandboxed worker and
- * cached configuration. Managed by the worker pool.
- */
 export type AgentSlot = {
-  /** The agent's unique slug identifier. */
   slug: string;
-  /** Credential hash of the agent owner (for KV scoping). */
   keyHash: string;
-  /** Active sandboxed worker running the agent. */
   sandbox?: Sandbox;
-  /** Promise that resolves to the sandbox when initialization completes. */
   initializing?: Promise<Sandbox>;
-  /** Timer handle for idle sandbox eviction. */
   idleTimer?: ReturnType<typeof setTimeout>;
 };
 
@@ -33,25 +24,6 @@ type AgentOpts = {
   vectorCtx?: { vectorStore: ServerVectorStore; scope: AgentScope } | undefined;
   getEnv: () => Promise<Record<string, string>>;
 };
-
-async function spawnAgent(
-  slot: AgentSlot,
-  opts: AgentOpts,
-): Promise<void> {
-  const { slug } = slot;
-  log.info("Loading agent sandbox", { slug });
-
-  const code = await opts.getWorkerCode(slug);
-  if (!code) throw new Error(`Worker code not found for ${slug}`);
-
-  slot.sandbox = await createSandbox({
-    workerCode: code,
-    env: await opts.getEnv(),
-    kvStore: opts.kvCtx.kvStore,
-    scope: opts.kvCtx.scope,
-    vectorStore: opts.vectorCtx?.vectorStore,
-  });
-}
 
 /** Terminate a running sandbox so it restarts on the next session. */
 export function terminateSandbox(slot: AgentSlot): void {
@@ -73,38 +45,35 @@ function resetIdleTimer(slot: AgentSlot): void {
   slot.idleTimer = id;
 }
 
-/**
- * Ensures an agent sandbox is running for the given slot.
- *
- * If a sandbox is already active, resets its idle eviction timer. If no
- * sandbox exists, loads the bundle and creates one. Concurrent calls for
- * the same slot coalesce into a single initialization promise.
- *
- * Returns the active sandbox.
- */
+/** Ensure a sandbox is running for the slot, coalescing concurrent calls. */
 export function ensureAgent(
   slot: AgentSlot,
   opts: AgentOpts,
 ): Promise<Sandbox> {
-  const t0 = performance.now();
-
   if (slot.sandbox) {
     resetIdleTimer(slot);
     return Promise.resolve(slot.sandbox);
   }
   if (slot.initializing) return slot.initializing;
 
-  slot.initializing = spawnAgent(slot, opts).then(
-    () => {
-      delete slot.initializing;
-      resetIdleTimer(slot);
-      log.info("Agent sandbox ready", {
-        slug: slot.slug,
-        durationMs: Math.round(performance.now() - t0),
-      });
-      return slot.sandbox!;
-    },
-  ).catch((err) => {
+  const t0 = performance.now();
+  slot.initializing = (async () => {
+    const code = await opts.getWorkerCode(slot.slug);
+    if (!code) throw new Error(`Worker code not found for ${slot.slug}`);
+    slot.sandbox = await createSandbox({
+      workerCode: code,
+      env: await opts.getEnv(),
+      kvStore: opts.kvCtx.kvStore,
+      scope: opts.kvCtx.scope,
+      vectorStore: opts.vectorCtx?.vectorStore,
+    });
+    resetIdleTimer(slot);
+    log.info("Agent sandbox ready", {
+      slug: slot.slug,
+      durationMs: Math.round(performance.now() - t0),
+    });
+    return slot.sandbox;
+  })().catch((err) => {
     delete slot.initializing;
     throw err;
   });
@@ -112,12 +81,7 @@ export function ensureAgent(
   return slot.initializing;
 }
 
-/**
- * Registers an agent slot from deploy metadata.
- *
- * Validates that the metadata contains a valid env (ASSEMBLYAI_API_KEY)
- * before registering. Agents with missing or invalid config are skipped.
- */
+/** Register an agent slot, validating env before accepting. */
 export function registerSlot(
   slots: Map<string, AgentSlot>,
   metadata: AgentMetadata,
@@ -138,12 +102,7 @@ export function registerSlot(
   return true;
 }
 
-/**
- * Prepares a sandbox for handling sessions for an agent.
- *
- * Loads the agent bundle (if not already loaded), creates a sandbox,
- * and returns it ready to accept client connections.
- */
+/** Load (or reuse) a sandbox for the given agent, ready for sessions. */
 export async function prepareSession(
   slot: AgentSlot,
   opts: {
