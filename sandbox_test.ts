@@ -101,7 +101,6 @@ const KV_WORKER = `
 import { CapnwebEndpoint } from "@aai/sdk/capnweb";
 
 const endpoint = new CapnwebEndpoint(globalThis);
-let kvResult = null;
 
 endpoint.handle("worker.init", () => null);
 
@@ -111,19 +110,19 @@ endpoint.handle("worker.fetch", async (args) => {
   const op = u.searchParams.get("op");
 
   if (op === "set") {
-    await endpoint.call("host.kv", ["set", "mykey", { hello: "world" }, undefined]);
+    await endpoint.call("kv.set", ["mykey", { hello: "world" }, undefined]);
     return { status: 200, headers: {}, body: "set-ok" };
   }
   if (op === "get") {
-    const val = await endpoint.call("host.kv", ["get", "mykey"]);
+    const val = await endpoint.call("kv.get", ["mykey"]);
     return { status: 200, headers: {}, body: JSON.stringify(val) };
   }
   if (op === "del") {
-    await endpoint.call("host.kv", ["del", "mykey"]);
+    await endpoint.call("kv.del", ["mykey"]);
     return { status: 200, headers: {}, body: "del-ok" };
   }
   if (op === "list") {
-    const entries = await endpoint.call("host.kv", ["list", "", undefined, undefined]);
+    const entries = await endpoint.call("kv.list", ["", undefined, undefined]);
     return { status: 200, headers: {}, body: JSON.stringify(entries) };
   }
   return { status: 404, headers: {}, body: "unknown" };
@@ -192,20 +191,20 @@ endpoint.handle("worker.fetch", async (args) => {
   const op = u.searchParams.get("op");
 
   if (op === "upsert") {
-    await endpoint.call("host.vector", ["upsert", "doc1", "hello world", undefined]);
+    await endpoint.call("vec.upsert", ["doc1", "hello world", undefined]);
     return { status: 200, headers: {}, body: "upsert-ok" };
   }
   if (op === "query") {
-    const results = await endpoint.call("host.vector", ["query", "hello", undefined, undefined]);
+    const results = await endpoint.call("vec.query", ["hello", undefined, undefined]);
     return { status: 200, headers: {}, body: JSON.stringify(results) };
   }
   if (op === "remove") {
-    await endpoint.call("host.vector", ["remove", ["doc1"]]);
+    await endpoint.call("vec.remove", [["doc1"]]);
     return { status: 200, headers: {}, body: "remove-ok" };
   }
   if (op === "no-store") {
     try {
-      await endpoint.call("host.vector", ["query", "x"]);
+      await endpoint.call("vec.query", ["x"]);
     } catch (e) {
       return { status: 200, headers: {}, body: e.message };
     }

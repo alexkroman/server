@@ -6,7 +6,8 @@ import {
   type ScopeKey,
   verifyScopeToken,
 } from "./scope_token.ts";
-import type { BundleStore } from "./bundle_store_tigris.ts";
+import type { DeployStore } from "./bundle_store_tigris.ts";
+import { isPrivateIp } from "./_net.ts";
 
 const VALID_SLUG_REGEXP = /^[a-z0-9][a-z0-9_-]{0,62}[a-z0-9]$/;
 
@@ -16,7 +17,6 @@ function bearerToken(req: Request): string | null {
   return header.slice(7) || null;
 }
 
-/** Validate slug URL param and return it. */
 export function validateSlug(slug: string): string {
   if (!VALID_SLUG_REGEXP.test(slug)) {
     throw new HTTPException(400, { message: "Invalid slug" });
@@ -24,10 +24,9 @@ export function validateSlug(slug: string): string {
   return slug;
 }
 
-/** Verify the request has a valid owner credential for the slug. Returns the API key hash. */
 export async function requireOwner(
   req: Request,
-  opts: { slug: string; store: BundleStore },
+  opts: { slug: string; store: DeployStore },
 ): Promise<string> {
   const apiKey = bearerToken(req);
   if (!apiKey) {
@@ -47,14 +46,12 @@ export async function requireOwner(
   return result.keyHash;
 }
 
-/** Require WebSocket upgrade header. */
 export function requireUpgrade(req: Request): void {
   if (req.headers.get("upgrade")?.toLowerCase() !== "websocket") {
     throw new HTTPException(400, { message: "Expected WebSocket upgrade" });
   }
 }
 
-/** Only allow requests from loopback / private addresses (Fly internal network, etc.). */
 export function requireInternal(
   req: Request,
   info: Deno.ServeHandlerInfo,
@@ -62,24 +59,11 @@ export function requireInternal(
   const fly = req.headers.get("fly-client-ip");
   const addr = info?.remoteAddr;
   const ip = fly ?? (addr && "hostname" in addr ? addr.hostname : "") ?? "";
-  if (!isPrivateIp(ip)) {
+  if (!ip || !isPrivateIp(ip)) {
     throw new HTTPException(403, { message: "Forbidden" });
   }
 }
 
-function isPrivateIp(ip: string): boolean {
-  if (!ip) return false;
-  return (
-    ip === "127.0.0.1" ||
-    ip === "::1" ||
-    ip.startsWith("10.") ||
-    ip.startsWith("172.") ||
-    ip.startsWith("192.168.") ||
-    ip.startsWith("fdaa:") // Fly.io private network
-  );
-}
-
-/** Verify scope token from Authorization header. Returns the decoded scope. */
 export async function requireScopeToken(
   req: Request,
   scopeKey: ScopeKey,
