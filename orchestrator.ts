@@ -47,7 +47,6 @@ export function createOrchestrator(opts: {
 }): Hono<Env> {
   const state: AppState = {
     slots: new Map(),
-    sessions: new Map(),
     store: opts.store,
     kvStore: opts.kvStore,
     vectorStore: opts.vectorStore,

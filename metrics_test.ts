@@ -137,8 +137,8 @@ Deno.test("histogram with no observations", () => {
 
 Deno.test("serialize includes all registered metrics", () => {
   const output = serialize();
-  assertStringIncludes(output, "aai_sessions_total");
-  assertStringIncludes(output, "aai_sessions_active");
+  assertStringIncludes(output, "http_requests_total");
+  assertStringIncludes(output, "http_request_duration_seconds");
   assert(output.endsWith("\n"));
 });
 
@@ -234,8 +234,8 @@ Deno.test("returns empty data for unknown agent", () => {
 
 Deno.test("serializeForAgent includes agent metrics, excludes global", () => {
   const output = serializeForAgent("test/nonexistent");
-  assertStringIncludes(output, "aai_sessions_total");
-  assertStringIncludes(output, "aai_sessions_active");
+  assertStringIncludes(output, "http_requests_total");
+  assertStringIncludes(output, "http_request_duration_seconds");
 });
 
 Deno.test("metric without agent label is excluded from agent filter", () => {

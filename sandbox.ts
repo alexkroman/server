@@ -15,7 +15,6 @@ import type { KvStore } from "./kv.ts";
 import type { ServerVectorStore } from "./vector.ts";
 import type { AgentScope } from "./scope_token.ts";
 import { assertPublicUrl } from "./_net.ts";
-export { assertPublicUrl } from "./_net.ts";
 
 export type SandboxOptions = {
   workerCode: string;

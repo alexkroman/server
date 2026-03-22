@@ -193,16 +193,6 @@ function createHistogram(
 /** @internal Exposed for unit tests only. */
 export const _internals = { createCounter, createGauge, createHistogram };
 
-export const sessionsTotal = createCounter(
-  "aai_sessions_total",
-  { help: "Total voice sessions created", labelNames: ["agent"] },
-);
-
-export const sessionsActive = createGauge(
-  "aai_sessions_active",
-  { help: "Currently active voice sessions", labelNames: ["agent"] },
-);
-
 export const httpRequestsTotal = createCounter(
   "http_requests_total",
   {
@@ -223,8 +213,6 @@ export const httpRequestDurationSeconds = createHistogram(
 type Metric = { serialize(agent?: string): string };
 
 const metrics: Metric[] = [
-  sessionsTotal,
-  sessionsActive,
   httpRequestsTotal,
   httpRequestDurationSeconds,
 ];

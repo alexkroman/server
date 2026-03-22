@@ -10,7 +10,7 @@ import { type AgentMetadata, AgentMetadataSchema } from "./_schemas.ts";
 import { type CredentialKey, decryptEnv, encryptEnv } from "./credentials.ts";
 import { typeByExtension } from "@std/media-types";
 
-export type FileKey = "worker" | "html";
+export type FileKey = "worker";
 
 export type BundleStore = {
   putAgent(bundle: {
@@ -35,7 +35,6 @@ type CacheEntry = {
 
 const FILE_NAMES: Record<FileKey, string> = {
   worker: "worker.js",
-  html: "index.html",
 };
 
 function objectKey(slug: string, file: string): string {

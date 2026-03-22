@@ -8,7 +8,6 @@ export const DeployBodySchema = z.object({
   worker: z.string().min(1).max(10_000_000),
   clientFiles: z.record(z.string(), z.string()),
 });
-export type DeployBody = z.infer<typeof DeployBodySchema>;
 
 export const EnvSchema = z.object({
   ASSEMBLYAI_API_KEY: z.string().min(1),
@@ -46,7 +45,6 @@ export const KvHttpRequestSchema = z
     }),
     z.object({ op: z.literal("keys"), pattern: z.string().optional() }),
   ]);
-export type KvHttpRequest = z.infer<typeof KvHttpRequestSchema>;
 
 // ─── Vector ─────────────────────────────────────────────────────────────────
 
@@ -65,7 +63,6 @@ export const VectorHttpRequestSchema = z
       filter: z.string().optional(),
     }),
   ]);
-export type VectorHttpRequest = z.infer<typeof VectorHttpRequestSchema>;
 
 // ─── Secrets ────────────────────────────────────────────────────────────────
 
