@@ -2,23 +2,23 @@
 import * as log from "@std/log";
 import { HTTPException } from "hono/http-exception";
 import type { Context } from "hono";
-import type { AppState, Env } from "./context.ts";
+import type { Env } from "./context.ts";
 import { SecretUpdatesSchema } from "./_schemas.ts";
-import { terminateSandbox } from "./worker_pool.ts";
 
-function restartSandbox(state: AppState, slug: string, reason: string): void {
-  const slot = state.slots.get(slug);
-  if (slot) {
+function restartSandbox(c: Context<Env>, slug: string, reason: string): void {
+  const slot = c.env.slots.get(slug);
+  if (slot?.sandbox) {
     log.info(`Restarting sandbox for ${reason}`, { slug });
-    terminateSandbox(slot);
+    slot.sandbox.terminate();
+    delete slot.sandbox;
+    delete slot.initializing;
   }
 }
 
 export async function handleSecretList(c: Context<Env>): Promise<Response> {
-  const state = c.get("state");
   const slug = c.get("slug");
 
-  const env = await state.store.getEnv(slug);
+  const env = await c.env.deployStore.getEnv(slug);
   if (!env) {
     throw new HTTPException(404, { message: `Agent ${slug} not found` });
   }
@@ -27,32 +27,37 @@ export async function handleSecretList(c: Context<Env>): Promise<Response> {
 }
 
 export async function handleSecretSet(c: Context<Env>): Promise<Response> {
-  const state = c.get("state");
   const slug = c.get("slug");
-  const updates = SecretUpdatesSchema.parse(await c.req.json());
 
-  const existing = await state.store.getEnv(slug) ?? {};
+  const parsed = SecretUpdatesSchema.safeParse(await c.req.json());
+  if (!parsed.success) {
+    throw new HTTPException(400, {
+      message: "Body must be a JSON object of string key-value pairs",
+    });
+  }
+  const updates = parsed.data;
+
+  const existing = await c.env.deployStore.getEnv(slug) ?? {};
   const merged = { ...existing, ...updates };
-  await state.store.putEnv(slug, merged);
+  await c.env.deployStore.putEnv(slug, merged);
 
-  restartSandbox(state, slug, "secret update");
+  restartSandbox(c, slug, "secret update");
   log.info("Secret updated", { slug, keys: Object.keys(updates) });
   return c.json({ ok: true, keys: Object.keys(merged) });
 }
 
 export async function handleSecretDelete(c: Context<Env>): Promise<Response> {
-  const state = c.get("state");
   const slug = c.get("slug");
   const key = c.req.param("key")!;
 
-  const existing = await state.store.getEnv(slug);
+  const existing = await c.env.deployStore.getEnv(slug);
   if (!existing) {
     throw new HTTPException(404, { message: `Agent ${slug} not found` });
   }
 
   delete existing[key];
-  await state.store.putEnv(slug, existing);
-  restartSandbox(state, slug, "secret delete");
+  await c.env.deployStore.putEnv(slug, existing);
+  restartSandbox(c, slug, "secret delete");
   log.info("Secret deleted", { slug, key });
   return c.json({ ok: true });
 }

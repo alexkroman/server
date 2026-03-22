@@ -6,13 +6,13 @@ import {
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
-import { type AgentMetadata, AgentMetadataSchema } from "./_schemas.ts";
+import type { AgentMetadata } from "./_schemas.ts";
+import { AgentMetadataSchema } from "./_schemas.ts";
 import { type CredentialKey, decryptEnv, encryptEnv } from "./credentials.ts";
 import { typeByExtension } from "@std/media-types";
 
-export type FileKey = "worker";
-
-export type BundleStore = {
+/** Deploy-time and runtime operations (manifest, worker code, env). */
+export type DeployStore = {
   putAgent(bundle: {
     slug: string;
     env: Record<string, string>;
@@ -21,20 +21,23 @@ export type BundleStore = {
     credential_hashes: string[];
   }): Promise<void>;
   getManifest(slug: string): Promise<AgentMetadata | null>;
-  getFile(slug: string, file: FileKey): Promise<string | null>;
-  getClientFile(slug: string, filePath: string): Promise<string | null>;
+  getWorkerCode(slug: string): Promise<string | null>;
   deleteAgent(slug: string): Promise<void>;
   getEnv(slug: string): Promise<Record<string, string> | null>;
   putEnv(slug: string, env: Record<string, string>): Promise<void>;
 };
 
+/** Static asset serving (client HTML, JS, CSS). */
+export type AssetStore = {
+  getClientFile(slug: string, filePath: string): Promise<string | null>;
+};
+
+/** Combined store — both deploy and asset operations. */
+export type BundleStore = DeployStore & AssetStore;
+
 type CacheEntry = {
   data: string;
   etag: string;
-};
-
-const FILE_NAMES: Record<FileKey, string> = {
-  worker: "worker.js",
 };
 
 function objectKey(slug: string, file: string): string {
@@ -208,9 +211,8 @@ export function createBundleStore(
       return parsed.data;
     },
 
-    async getFile(slug, file) {
-      const fileName = FILE_NAMES[file];
-      return await get(objectKey(slug, fileName));
+    async getWorkerCode(slug) {
+      return await get(objectKey(slug, "worker.js"));
     },
 
     async getClientFile(slug, filePath) {

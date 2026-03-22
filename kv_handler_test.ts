@@ -46,7 +46,6 @@ const SCOPE = { slug: "test-agent", keyHash: "abc" };
 function createTestApp(kvStore: ReturnType<typeof createMockKvStore>) {
   const app = new Hono<Env>();
   app.use("*", async (c, next) => {
-    c.set("state", { kvStore } as never);
     c.set("scope", SCOPE);
     await next();
   });
@@ -60,19 +59,19 @@ function createTestApp(kvStore: ReturnType<typeof createMockKvStore>) {
     return c.json({ error: "unexpected" }, 500);
   });
   app.post("/kv", handleKv);
-  return app;
+  return { app, kvStore };
 }
 
 async function postKv(
   kvStore: ReturnType<typeof createMockKvStore>,
   body: unknown,
 ): Promise<{ status: number; json: Record<string, unknown> }> {
-  const app = createTestApp(kvStore);
+  const { app } = createTestApp(kvStore);
   const res = await app.request("/kv", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
-  });
+  }, { kvStore } as Record<string, unknown>);
   return {
     status: res.status,
     json: (await res.json()) as Record<string, unknown>,

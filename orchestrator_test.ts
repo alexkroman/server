@@ -2,7 +2,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { stub } from "@std/testing/mock";
 import { _internals as _wsInternals } from "./transport_websocket.ts";
-import { hashApiKey } from "./middleware.ts";
+import { hashApiKey } from "./auth.ts";
 import { signScopeToken } from "./scope_token.ts";
 import {
   createTestOrchestrator,
@@ -193,9 +193,9 @@ Deno.test("websocket upgrades for deployed agent", async () => {
       response: new Response(null, { status: 101 }),
     }),
   );
-  using _prepareStub = stub(
+  using _resolveStub = stub(
     _wsInternals,
-    "prepareSession",
+    "resolveSandbox",
     (() =>
       Promise.resolve({
         startSession: () => {},

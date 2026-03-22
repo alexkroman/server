@@ -6,7 +6,7 @@ import type { Env } from "./context.ts";
 import { VectorHttpRequestSchema } from "./_schemas.ts";
 
 export async function handleVector(c: Context<Env>): Promise<Response> {
-  const { vectorStore } = c.get("state");
+  const { vectorStore } = c.env;
   const scope = { keyHash: c.get("keyHash"), slug: c.get("slug") };
 
   if (!vectorStore) {
@@ -31,12 +31,9 @@ export async function handleVector(c: Context<Env>): Promise<Response> {
             msg.filter,
           ),
         });
-      default: {
-        const _: never = msg;
-        return c.json({
-          error: `Unknown vector op: ${(_ as { op: string }).op}`,
-        }, 400);
-      }
+      case "remove":
+        await vectorStore.remove(scope, msg.ids);
+        return c.json({ result: "OK" });
     }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);

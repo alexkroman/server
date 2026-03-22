@@ -16,7 +16,6 @@ function createTestApp(
 ) {
   const app = new Hono<Env>();
   app.use("*", async (c, next) => {
-    c.set("state", { vectorStore } as never);
     c.set("slug", SCOPE.slug);
     c.set("keyHash", SCOPE.keyHash);
     await next();
@@ -31,7 +30,7 @@ function createTestApp(
     return c.json({ error: "unexpected" }, 500);
   });
   app.post("/vector", handleVector);
-  return app;
+  return { app, vectorStore };
 }
 
 async function postVector(
@@ -39,12 +38,12 @@ async function postVector(
   vectorStore?: ReturnType<typeof createTestVectorStore>,
 ): Promise<{ status: number; json: Record<string, unknown> }> {
   const vs = vectorStore ?? createTestVectorStore();
-  const app = createTestApp(vs);
+  const { app } = createTestApp(vs);
   const res = await app.request("/vector", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
-  });
+  }, { vectorStore: vs } as Record<string, unknown>);
   return {
     status: res.status,
     json: (await res.json()) as Record<string, unknown>,
@@ -54,12 +53,12 @@ async function postVector(
 // --- validation ---
 
 Deno.test("vector: rejects when store not configured", async () => {
-  const app = createTestApp(undefined);
+  const { app } = createTestApp(undefined);
   const res = await app.request("/vector", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ op: "query", text: "hello" }),
-  });
+  }, { vectorStore: undefined } as Record<string, unknown>);
   assertStrictEquals(res.status, 503);
 });
 
@@ -151,14 +150,14 @@ Deno.test("vector: returns 500 when store throws", async () => {
     query: () => Promise.reject(new Error("vec down")),
     remove: () => Promise.reject(new Error("vec down")),
   };
-  const app = createTestApp(
+  const { app } = createTestApp(
     failingStore as unknown as ReturnType<typeof createTestVectorStore>,
   );
   const res = await app.request("/vector", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ op: "query", text: "hello" }),
-  });
+  }, { vectorStore: failingStore } as Record<string, unknown>);
   assertStrictEquals(res.status, 500);
   const json = (await res.json()) as Record<string, unknown>;
   assertStringIncludes(json.error as string, "Vector operation failed");
@@ -171,14 +170,14 @@ Deno.test("vector upsert: returns 500 when store throws", async () => {
     query: () => Promise.reject(new Error("write fail")),
     remove: () => Promise.reject(new Error("write fail")),
   };
-  const app = createTestApp(
+  const { app } = createTestApp(
     failingStore as unknown as ReturnType<typeof createTestVectorStore>,
   );
   const res = await app.request("/vector", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ op: "upsert", id: "x", data: "y" }),
-  });
+  }, { vectorStore: failingStore } as Record<string, unknown>);
   assertStrictEquals(res.status, 500);
   const json = (await res.json()) as Record<string, unknown>;
   assertStringIncludes(json.error as string, "write fail");

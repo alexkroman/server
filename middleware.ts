@@ -1,38 +1,13 @@
 // Copyright 2025 the AAI authors. MIT license.
-import { encodeHex } from "@std/encoding/hex";
 import { HTTPException } from "hono/http-exception";
+import { verifySlugOwner } from "./auth.ts";
 import {
   type AgentScope,
   type ScopeKey,
   verifyScopeToken,
 } from "./scope_token.ts";
-import type { BundleStore } from "./bundle_store_tigris.ts";
+import type { DeployStore } from "./bundle_store_tigris.ts";
 import { isPrivateIp } from "./_net.ts";
-
-export async function hashApiKey(apiKey: string): Promise<string> {
-  return encodeHex(
-    await crypto.subtle.digest("SHA-256", new TextEncoder().encode(apiKey)),
-  );
-}
-
-export type OwnerResult =
-  | { status: "unclaimed"; keyHash: string }
-  | { status: "owned"; keyHash: string }
-  | { status: "forbidden" };
-
-export async function verifySlugOwner(
-  apiKey: string,
-  opts: { slug: string; store: BundleStore },
-): Promise<OwnerResult> {
-  const { slug, store } = opts;
-  const keyHash = await hashApiKey(apiKey);
-  const manifest = await store.getManifest(slug);
-  if (!manifest) return { status: "unclaimed", keyHash };
-  if (manifest.credential_hashes.includes(keyHash)) {
-    return { status: "owned", keyHash };
-  }
-  return { status: "forbidden" };
-}
 
 const VALID_SLUG_REGEXP = /^[a-z0-9][a-z0-9_-]{0,62}[a-z0-9]$/;
 
@@ -51,7 +26,7 @@ export function validateSlug(slug: string): string {
 
 export async function requireOwner(
   req: Request,
-  opts: { slug: string; store: BundleStore },
+  opts: { slug: string; store: DeployStore },
 ): Promise<string> {
   const apiKey = bearerToken(req);
   if (!apiKey) {

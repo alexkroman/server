@@ -2,12 +2,20 @@
 // Zod schemas — validate untrusted input at HTTP/WebSocket boundaries.
 
 import { z } from "zod";
+import {
+  type KvRequest,
+  KvRequestSchema,
+  type VectorRequest,
+  VectorRequestSchema,
+} from "@aai/sdk/protocol";
 
 export const DeployBodySchema = z.object({
   env: z.record(z.string(), z.string()).optional(),
   worker: z.string().min(1).max(10_000_000),
   clientFiles: z.record(z.string(), z.string()),
 });
+
+export type DeployBody = z.infer<typeof DeployBodySchema>;
 
 export const EnvSchema = z.object({
   ASSEMBLYAI_API_KEY: z.string().min(1),
@@ -27,42 +35,20 @@ export const AgentMetadataSchema: z.ZodType<AgentMetadata> = z.object({
 
 // ─── KV ─────────────────────────────────────────────────────────────────────
 
-export const KvHttpRequestSchema = z
-  .discriminatedUnion("op", [
-    z.object({ op: z.literal("get"), key: z.string().min(1) }),
-    z.object({
-      op: z.literal("set"),
-      key: z.string().min(1),
-      value: z.string(),
-      ttl: z.number().int().positive().optional(),
-    }),
-    z.object({ op: z.literal("del"), key: z.string().min(1) }),
-    z.object({
-      op: z.literal("list"),
-      prefix: z.string(),
-      limit: z.number().int().positive().optional(),
-      reverse: z.boolean().optional(),
-    }),
-    z.object({ op: z.literal("keys"), pattern: z.string().optional() }),
-  ]);
+/** KV HTTP request — re-exported from the SDK protocol. */
+export type KvHttpRequest = KvRequest;
+
+/** Zod schema for validating KV HTTP request bodies. */
+export const KvHttpRequestSchema: z.ZodType<KvHttpRequest> = KvRequestSchema;
 
 // ─── Vector ─────────────────────────────────────────────────────────────────
 
-export const VectorHttpRequestSchema = z
-  .discriminatedUnion("op", [
-    z.object({
-      op: z.literal("upsert"),
-      id: z.string().min(1),
-      data: z.string().min(1),
-      metadata: z.record(z.string(), z.unknown()).optional(),
-    }),
-    z.object({
-      op: z.literal("query"),
-      text: z.string().min(1),
-      topK: z.number().int().positive().max(100).optional(),
-      filter: z.string().optional(),
-    }),
-  ]);
+/** Vector HTTP request — re-exported from the SDK protocol. */
+export type VectorHttpRequest = VectorRequest;
+
+/** Zod schema for validating Vector HTTP request bodies. */
+export const VectorHttpRequestSchema: z.ZodType<VectorHttpRequest> =
+  VectorRequestSchema;
 
 // ─── Secrets ────────────────────────────────────────────────────────────────
 

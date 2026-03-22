@@ -5,7 +5,7 @@ import type { Env } from "./context.ts";
 import { KvHttpRequestSchema } from "./_schemas.ts";
 
 export async function handleKv(c: Context<Env>): Promise<Response> {
-  const { kvStore } = c.get("state");
+  const { kvStore } = c.env;
   const scope = c.get("scope");
   const msg = KvHttpRequestSchema.parse(await c.req.json());
 

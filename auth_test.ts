@@ -6,7 +6,7 @@ import {
   assertNotStrictEquals,
   assertStrictEquals,
 } from "@std/assert";
-import { hashApiKey, verifySlugOwner } from "./middleware.ts";
+import { hashApiKey, verifySlugOwner } from "./auth.ts";
 import { createTestStore } from "./_test_utils.ts";
 
 Deno.test("hashApiKey produces consistent 64-char hex", async () => {
