@@ -7,7 +7,6 @@ import type { KvStore } from "./kv.ts";
 import type { ServerVectorStore } from "./vector.ts";
 import type { AgentScope } from "./scope_token.ts";
 import { createSandbox, type Sandbox } from "./sandbox.ts";
-export type { AgentMetadata } from "./_schemas.ts";
 
 const IDLE_MS = 5 * 60 * 1000;
 

@@ -6,8 +6,7 @@ import {
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
-import type { AgentMetadata } from "./worker_pool.ts";
-import { AgentMetadataSchema } from "./_schemas.ts";
+import { type AgentMetadata, AgentMetadataSchema } from "./_schemas.ts";
 import { type CredentialKey, decryptEnv, encryptEnv } from "./credentials.ts";
 import { typeByExtension } from "@std/media-types";
 
@@ -150,6 +149,15 @@ export function createBundleStore(
     }
   }
 
+  /** Fetch and JSON-parse the raw manifest for a slug. */
+  async function getRawManifest(
+    slug: string,
+  ): Promise<Record<string, unknown> | null> {
+    const data = await get(objectKey(slug, "manifest.json"));
+    if (data === null) return null;
+    return JSON.parse(data);
+  }
+
   const store: BundleStore = {
     async putAgent(bundle) {
       await deleteAgent(bundle.slug);
@@ -191,16 +199,18 @@ export function createBundleStore(
     },
 
     async getManifest(slug) {
-      const data = await get(objectKey(slug, "manifest.json"));
-      if (data === null) return null;
-      const raw = JSON.parse(data);
+      const raw = await getRawManifest(slug);
+      if (!raw) return null;
 
-      raw.env = await decryptEnv(credentialKey, { encrypted: raw.env, slug });
+      raw.env = await decryptEnv(credentialKey, {
+        encrypted: raw.env as string,
+        slug,
+      });
       delete raw.envEncrypted;
 
       const parsed = AgentMetadataSchema.safeParse(raw);
       if (!parsed.success) return null;
-      return parsed.data as AgentMetadata;
+      return parsed.data;
     },
 
     async getFile(slug, file) {
@@ -215,16 +225,17 @@ export function createBundleStore(
     deleteAgent,
 
     async getEnv(slug) {
-      const data = await get(objectKey(slug, "manifest.json"));
-      if (data === null) return null;
-      const raw = JSON.parse(data);
-      return await decryptEnv(credentialKey, { encrypted: raw.env, slug });
+      const raw = await getRawManifest(slug);
+      if (!raw) return null;
+      return await decryptEnv(credentialKey, {
+        encrypted: raw.env as string,
+        slug,
+      });
     },
 
     async putEnv(slug, env) {
-      const data = await get(objectKey(slug, "manifest.json"));
-      if (data === null) throw new Error(`Agent ${slug} not found`);
-      const raw = JSON.parse(data);
+      const raw = await getRawManifest(slug);
+      if (!raw) throw new Error(`Agent ${slug} not found`);
       raw.env = await encryptEnv(credentialKey, { env, slug });
       raw.envEncrypted = true;
       await put(
