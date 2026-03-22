@@ -14,12 +14,17 @@ export const EnvSchema = z.object({
   ASSEMBLYAI_API_KEY: z.string().min(1),
 }).catchall(z.string());
 
-export const AgentMetadataSchema = z.object({
+export type AgentMetadata = {
+  slug: string;
+  env: Record<string, string>;
+  "credential_hashes": string[];
+};
+
+export const AgentMetadataSchema: z.ZodType<AgentMetadata> = z.object({
   slug: z.string(),
   env: z.record(z.string(), z.string()).default({}),
   credential_hashes: z.array(z.string()).default([]),
 });
-export type AgentMetadata = z.infer<typeof AgentMetadataSchema>;
 
 // ─── KV ─────────────────────────────────────────────────────────────────────
 

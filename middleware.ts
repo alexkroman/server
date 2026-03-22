@@ -36,7 +36,9 @@ export async function verifySlugOwner(
   const keyHash = await hashApiKey(apiKey);
   const manifest = await store.getManifest(slug);
   if (!manifest) return { status: "unclaimed", keyHash };
-  if (manifest.credential_hashes.includes(keyHash)) return { status: "owned", keyHash };
+  if (manifest.credential_hashes.includes(keyHash)) {
+    return { status: "owned", keyHash };
+  }
   return { status: "forbidden" };
 }
 

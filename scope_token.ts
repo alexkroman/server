@@ -1,5 +1,5 @@
 // Copyright 2025 the AAI authors. MIT license.
-import { SignJWT, jwtVerify } from "jose";
+import { jwtVerify, SignJWT } from "jose";
 
 export type AgentScope = { keyHash: string; slug: string };
 export type ScopeKey = Uint8Array;

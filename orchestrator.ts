@@ -5,6 +5,7 @@ import { createMiddleware } from "hono/factory";
 import { cors } from "hono/cors";
 import { secureHeaders } from "hono/secure-headers";
 import { HTTPException } from "hono/http-exception";
+import { z } from "zod";
 import type { AppState, Env } from "./context.ts";
 import { handleDeploy } from "./deploy.ts";
 import {
@@ -24,13 +25,6 @@ import { handleVector } from "./vector_handler.ts";
 import type { KvStore } from "./kv.ts";
 import type { ServerVectorStore } from "./vector.ts";
 import type { ScopeKey } from "./scope_token.ts";
-import { sValidator } from "@hono/standard-validator";
-import {
-  DeployBodySchema,
-  KvHttpRequestSchema,
-  SecretUpdatesSchema,
-  VectorHttpRequestSchema,
-} from "./_schemas.ts";
 import {
   httpRequestDurationSeconds,
   httpRequestsTotal,
@@ -94,10 +88,13 @@ export function createOrchestrator(opts: {
   });
 
   app.use("*", cors());
-  app.use("*", secureHeaders({
-    crossOriginOpenerPolicy: "same-origin",
-    crossOriginEmbedderPolicy: "credentialless",
-  }));
+  app.use(
+    "*",
+    secureHeaders({
+      crossOriginOpenerPolicy: "same-origin",
+      crossOriginEmbedderPolicy: "credentialless",
+    }),
+  );
   app.use("*", async (c, next) => {
     c.set("state", state);
     await next();
@@ -125,6 +122,9 @@ export function createOrchestrator(opts: {
     if (err instanceof HTTPException) {
       return c.json({ error: err.message }, err.status);
     }
+    if (err instanceof z.ZodError) {
+      return c.json({ error: err.message }, 400);
+    }
     log.error("Unhandled error", {
       error: err instanceof Error ? err.message : String(err),
       path: new URL(c.req.url).pathname,
@@ -146,12 +146,12 @@ export function createOrchestrator(opts: {
     return c.redirect(url.toString(), 301);
   });
 
-  app.post("/:slug/deploy", slugMw, ownerMw, sValidator("json", DeployBodySchema), handleDeploy);
+  app.post("/:slug/deploy", slugMw, ownerMw, handleDeploy);
   app.get("/:slug/secret", slugMw, ownerMw, handleSecretList);
-  app.put("/:slug/secret", slugMw, ownerMw, sValidator("json", SecretUpdatesSchema), handleSecretSet);
+  app.put("/:slug/secret", slugMw, ownerMw, handleSecretSet);
   app.delete("/:slug/secret/:key", slugMw, ownerMw, handleSecretDelete);
-  app.post("/:slug/kv", internalMw, slugMw, scopeTokenMw, sValidator("json", KvHttpRequestSchema), handleKv);
-  app.post("/:slug/vector", slugMw, ownerMw, sValidator("json", VectorHttpRequestSchema), handleVector);
+  app.post("/:slug/kv", internalMw, slugMw, scopeTokenMw, handleKv);
+  app.post("/:slug/vector", slugMw, ownerMw, handleVector);
 
   app.get("/:slug/metrics", slugMw, ownerMw, (c) => {
     return c.text(serializeForAgent(c.get("slug")), 200, {

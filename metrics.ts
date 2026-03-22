@@ -10,7 +10,20 @@ const DEFAULT_BUCKETS = [0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30];
 
 // OpenTelemetry recommended buckets for HTTP request duration
 const HTTP_BUCKETS = [
-  0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1, 2.5, 5, 7.5, 10,
+  0.005,
+  0.01,
+  0.025,
+  0.05,
+  0.075,
+  0.1,
+  0.25,
+  0.5,
+  0.75,
+  1,
+  2.5,
+  5,
+  7.5,
+  10,
 ];
 
 type Labels = Record<string, string>;
@@ -31,7 +44,10 @@ function resolve(
     // Parse the label we need from the key
     const p = `agent="`;
     const i = key.indexOf(p);
-    if (i === -1 || key.slice(i + p.length, key.indexOf('"', i + p.length)) !== agent) return null;
+    if (
+      i === -1 ||
+      key.slice(i + p.length, key.indexOf('"', i + p.length)) !== agent
+    ) return null;
     // Strip the agent label, keep the rest
     const stripped = names.filter((n) => n !== "agent")
       .map((n) => {

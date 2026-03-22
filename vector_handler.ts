@@ -3,6 +3,7 @@ import * as log from "@std/log";
 import { HTTPException } from "hono/http-exception";
 import type { Context } from "hono";
 import type { Env } from "./context.ts";
+import { VectorHttpRequestSchema } from "./_schemas.ts";
 
 export async function handleVector(c: Context<Env>): Promise<Response> {
   const { vectorStore } = c.get("state");
@@ -14,7 +15,7 @@ export async function handleVector(c: Context<Env>): Promise<Response> {
     });
   }
 
-  const msg = c.req.valid("json");
+  const msg = VectorHttpRequestSchema.parse(await c.req.json());
 
   try {
     switch (msg.op) {
@@ -30,6 +31,8 @@ export async function handleVector(c: Context<Env>): Promise<Response> {
             msg.filter,
           ),
         });
+      default:
+        return c.json({ error: `Unknown vector op` }, 400);
     }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);

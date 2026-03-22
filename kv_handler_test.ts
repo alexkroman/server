@@ -6,10 +6,9 @@ import {
 } from "@std/assert";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
+import { z } from "zod";
 import type { Env } from "./context.ts";
 import { handleKv } from "./kv_handler.ts";
-import { sValidator } from "@hono/standard-validator";
-import { KvHttpRequestSchema } from "./_schemas.ts";
 
 // --- helpers ---
 
@@ -55,9 +54,12 @@ function createTestApp(kvStore: ReturnType<typeof createMockKvStore>) {
     if (err instanceof HTTPException) {
       return c.json({ error: err.message }, err.status);
     }
+    if (err instanceof z.ZodError) {
+      return c.json({ error: err.message }, 400);
+    }
     return c.json({ error: "unexpected" }, 500);
   });
-  app.post("/kv", sValidator("json", KvHttpRequestSchema), handleKv);
+  app.post("/kv", handleKv);
   return app;
 }
 

@@ -2,11 +2,10 @@
 import { assert, assertStrictEquals, assertStringIncludes } from "@std/assert";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
+import { z } from "zod";
 import type { Env } from "./context.ts";
 import { handleVector } from "./vector_handler.ts";
 import { createTestVectorStore } from "./_test_utils.ts";
-import { sValidator } from "@hono/standard-validator";
-import { VectorHttpRequestSchema } from "./_schemas.ts";
 
 // --- helpers ---
 
@@ -26,9 +25,12 @@ function createTestApp(
     if (err instanceof HTTPException) {
       return c.json({ error: err.message }, err.status);
     }
+    if (err instanceof z.ZodError) {
+      return c.json({ error: err.message }, 400);
+    }
     return c.json({ error: "unexpected" }, 500);
   });
-  app.post("/vector", sValidator("json", VectorHttpRequestSchema), handleVector);
+  app.post("/vector", handleVector);
   return app;
 }
 

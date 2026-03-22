@@ -74,10 +74,23 @@ export async function createSandbox(
   // ─── Host-side RPC handlers ──────────────────────────────────────────
 
   endpoint.handle("host.fetch", async (args) => {
-    const [url, method, headers, body] = args as [string, string, Record<string, string>, string?];
+    const [url, method, headers, body] = args as [
+      string,
+      string,
+      Record<string, string>,
+      string?,
+    ];
     await assertPublicUrl(url);
-    const res = await fetch(url, { method, headers, ...(body ? { body } : {}) });
-    return { status: res.status, headers: Object.fromEntries(res.headers), body: await res.text() };
+    const res = await fetch(url, {
+      method,
+      headers,
+      ...(body ? { body } : {}),
+    });
+    return {
+      status: res.status,
+      headers: Object.fromEntries(res.headers),
+      body: await res.text(),
+    };
   });
 
   endpoint.handle("host.kv", async (args) => {
@@ -86,11 +99,20 @@ export async function createSandbox(
       case "get": {
         const raw = await kvStore.get(scope, rest[0] as string);
         if (raw === null) return null;
-        try { return JSON.parse(raw); } catch { return raw; }
+        try {
+          return JSON.parse(raw);
+        } catch {
+          return raw;
+        }
       }
       case "set": {
         const [key, value, expireIn] = rest as [string, unknown, number?];
-        await kvStore.set(scope, key, JSON.stringify(value), expireIn ? Math.ceil(expireIn / 1000) : undefined);
+        await kvStore.set(
+          scope,
+          key,
+          JSON.stringify(value),
+          expireIn ? Math.ceil(expireIn / 1000) : undefined,
+        );
         return null;
       }
       case "del":
@@ -98,7 +120,10 @@ export async function createSandbox(
         return null;
       case "list": {
         const [prefix, limit, reverse] = rest as [string, number?, boolean?];
-        return (await kvStore.list(scope, prefix, { limit, reverse })).map((e) => ({ key: e.key, value: e.value }));
+        return (await kvStore.list(scope, prefix, {
+          ...(limit !== undefined && { limit }),
+          ...(reverse !== undefined && { reverse }),
+        })).map((e) => ({ key: e.key, value: e.value }));
       }
       default:
         throw new Error(`Unknown KV op: ${op}`);
@@ -110,7 +135,11 @@ export async function createSandbox(
     if (!vectorStore) throw new Error("Vector store not configured");
     switch (op) {
       case "upsert": {
-        const [id, data, metadata] = rest as [string, string, Record<string, unknown>?];
+        const [id, data, metadata] = rest as [
+          string,
+          string,
+          Record<string, unknown>?,
+        ];
         await vectorStore.upsert(scope, id, data, metadata);
         return null;
       }
@@ -130,7 +159,10 @@ export async function createSandbox(
     const [url, headersJson] = _args as [string, string];
     const port = ports[0];
     if (!port) throw new Error("No port transferred for WebSocket");
-    bridgeS2sWebSocketToPort(wsFactory(url, { headers: JSON.parse(headersJson) }), port);
+    bridgeS2sWebSocketToPort(
+      wsFactory(url, { headers: JSON.parse(headersJson) }),
+      port,
+    );
     return null;
   });
 

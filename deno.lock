@@ -32,10 +32,13 @@
     "jsr:@zod/zod@^4.3.6": "4.3.6",
     "npm:@alexkroman1/aai@*": "0.7.10_@babel+core@7.29.0",
     "npm:@aws-sdk/client-s3@^3.1001.0": "3.1008.0",
+    "npm:@noble/ciphers@1": "1.3.0",
+    "npm:@noble/hashes@1": "1.8.0",
     "npm:@types/json-schema@^7.0.15": "7.0.15",
     "npm:@upstash/redis@^1.36.1": "1.37.0",
     "npm:@upstash/vector@1": "1.2.3",
     "npm:hono@4": "4.12.8",
+    "npm:jose@6": "6.2.2",
     "npm:markdownlint-cli@0.44": "0.44.0",
     "npm:ws@8": "8.19.0"
   },
@@ -1034,6 +1037,12 @@
         "@jridgewell/resolve-uri",
         "@jridgewell/sourcemap-codec"
       ]
+    },
+    "@noble/ciphers@1.3.0": {
+      "integrity": "sha512-2I0gnIVPtfnMw9ee9h1dJG7tp81+8Ob3OJb3Mv37rx5L40/b0i7djjCVvGOVqc9AEIQyvyu1i6ypKdFw8R8gQw=="
+    },
+    "@noble/hashes@1.8.0": {
+      "integrity": "sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A=="
     },
     "@nodelib/fs.scandir@2.1.5": {
       "integrity": "sha512-vq24Bq3ym5HEQm2NKCr3yXDwjc7vTsEThRDnkp2DK9p1uqLR+DHurm/NOTo0KG7HYHU7eppKZj3MyqYuMBf62g==",
@@ -2335,6 +2344,9 @@
       "integrity": "sha512-ekilCSN1jwRvIbgeg/57YFh8qQDNbwDb9xT/qu2DAHbFFZUicIl4ygVaAvzveMhMVr3LnpSKTNnwt8PoOfmKhQ==",
       "bin": true
     },
+    "jose@6.2.2": {
+      "integrity": "sha512-d7kPDd34KO/YnzaDOlikGpOurfF0ByC2sEV4cANCtdqLlTfBlw2p14O/5d/zv40gJPbIQxfES3nSx1/oYNyuZQ=="
+    },
     "js-tokens@4.0.0": {
       "integrity": "sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ=="
     },
@@ -3200,10 +3212,13 @@
       "jsr:@zod/zod@^4.3.6",
       "npm:@alexkroman1/aai@*",
       "npm:@aws-sdk/client-s3@^3.1001.0",
+      "npm:@noble/ciphers@1",
+      "npm:@noble/hashes@1",
       "npm:@types/json-schema@^7.0.15",
       "npm:@upstash/redis@^1.36.1",
       "npm:@upstash/vector@1",
       "npm:hono@4",
+      "npm:jose@6",
       "npm:markdownlint-cli@0.44",
       "npm:ws@8"
     ]

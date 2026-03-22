@@ -2,11 +2,12 @@
 import * as log from "@std/log";
 import type { Context } from "hono";
 import type { Env } from "./context.ts";
+import { KvHttpRequestSchema } from "./_schemas.ts";
 
 export async function handleKv(c: Context<Env>): Promise<Response> {
   const { kvStore } = c.get("state");
   const scope = c.get("scope");
-  const msg = c.req.valid("json");
+  const msg = KvHttpRequestSchema.parse(await c.req.json());
 
   try {
     switch (msg.op) {
@@ -20,13 +21,16 @@ export async function handleKv(c: Context<Env>): Promise<Response> {
         return c.json({ result: "OK" });
       case "keys":
         return c.json({ result: await kvStore.keys(scope, msg.pattern) });
-      case "list":
+      case "list": {
+        const opts: { limit?: number; reverse?: boolean } = {};
+        if (msg.limit !== undefined) opts.limit = msg.limit;
+        if (msg.reverse !== undefined) opts.reverse = msg.reverse;
         return c.json({
-          result: await kvStore.list(scope, msg.prefix, {
-            limit: msg.limit,
-            reverse: msg.reverse,
-          }),
+          result: await kvStore.list(scope, msg.prefix, opts),
         });
+      }
+      default:
+        return c.json({ error: `Unknown KV op` }, 400);
     }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
