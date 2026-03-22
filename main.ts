@@ -48,11 +48,11 @@ if (isDev) {
   store = createTestStore();
   kvStore = createTestKvStore();
   vectorStore = createTestVectorStore();
-  scopeKey = await importScopeKey("dev-secret");
+  scopeKey = importScopeKey("dev-secret");
 } else {
   const bucket = requireEnv("BUCKET_NAME");
   const kvSecret = requireEnv("KV_SCOPE_SECRET");
-  const credentialKey = await deriveCredentialKey(kvSecret);
+  const credentialKey = deriveCredentialKey(kvSecret);
   const s3 = createS3Client();
   store = createBundleStore(s3, { bucket, credentialKey });
   kvStore = createKvStore(
@@ -71,7 +71,7 @@ if (isDev) {
     }
     vectorStore = createVectorStore(vectorUrl, vectorToken);
   }
-  scopeKey = await importScopeKey(kvSecret);
+  scopeKey = importScopeKey(kvSecret);
 }
 
 const app = createOrchestrator({ store, kvStore, vectorStore, scopeKey });

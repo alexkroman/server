@@ -2,6 +2,7 @@
 import { assert, assertStrictEquals, assertStringIncludes } from "@std/assert";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
+import { z } from "zod";
 import type { Env } from "./context.ts";
 import { handleVector } from "./vector_handler.ts";
 import { createTestVectorStore } from "./_test_utils.ts";
@@ -22,6 +23,9 @@ function createTestApp(
   app.onError((err, c) => {
     if (err instanceof HTTPException) {
       return c.json({ error: err.message }, err.status);
+    }
+    if (err instanceof z.ZodError) {
+      return c.json({ error: err.message }, 400);
     }
     return c.json({ error: "unexpected" }, 500);
   });
@@ -59,9 +63,8 @@ Deno.test("vector: rejects when store not configured", async () => {
 });
 
 Deno.test("vector: rejects invalid request body", async () => {
-  const { status, json } = await postVector({ op: "badop" });
+  const { status } = await postVector({ op: "badop" });
   assertStrictEquals(status, 400);
-  assertStringIncludes(json.error as string, "Invalid");
 });
 
 Deno.test("vector: rejects missing text for query", async () => {

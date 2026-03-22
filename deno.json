@@ -49,6 +49,9 @@
     "@upstash/vector": "npm:@upstash/vector@^1",
 
     "hono": "npm:hono@^4",
+    "jose": "npm:jose@^6",
+    "@noble/ciphers": "npm:@noble/ciphers@^1",
+    "@noble/hashes": "npm:@noble/hashes@^1",
     "ws": "npm:ws@^8",
     "markdownlint-cli": "npm:markdownlint-cli@^0.44.0"
   },

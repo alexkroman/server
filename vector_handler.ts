@@ -5,13 +5,6 @@ import type { Context } from "hono";
 import type { Env } from "./context.ts";
 import { VectorHttpRequestSchema } from "./_schemas.ts";
 
-/**
- * Handler for the vector operations endpoint (`POST /:slug/vector`).
- *
- * Dispatches `upsert` and `query` operations to the vector store,
- * scoped to the requesting agent. Used by `aai rag` to populate
- * the vector store and by external clients to query it.
- */
 export async function handleVector(c: Context<Env>): Promise<Response> {
   const { vectorStore } = c.env;
   const scope = { keyHash: c.get("keyHash"), slug: c.get("slug") };
@@ -22,12 +15,7 @@ export async function handleVector(c: Context<Env>): Promise<Response> {
     });
   }
 
-  let msg: ReturnType<typeof VectorHttpRequestSchema.parse>;
-  try {
-    msg = VectorHttpRequestSchema.parse(await c.req.json());
-  } catch {
-    throw new HTTPException(400, { message: "Invalid request" });
-  }
+  const msg = VectorHttpRequestSchema.parse(await c.req.json());
 
   try {
     switch (msg.op) {

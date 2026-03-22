@@ -7,7 +7,6 @@ import { resolveSandbox } from "./sandbox.ts";
 
 export const _internals = { resolveSandbox };
 
-/** Handler for the agent health check endpoint (`GET /:slug/health`). */
 export async function handleAgentHealth(c: Context<Env>): Promise<Response> {
   const slug = c.get("slug");
   const manifest = await c.env.deployStore.getManifest(slug);
@@ -17,7 +16,6 @@ export async function handleAgentHealth(c: Context<Env>): Promise<Response> {
   return c.json({ status: "ok", slug });
 }
 
-/** Handler for the agent landing page (`GET /:slug`). */
 export async function handleAgentPage(c: Context<Env>): Promise<Response> {
   const slug = c.get("slug");
   const page = await c.env.assetStore.getClientFile(slug, "index.html");
@@ -25,7 +23,6 @@ export async function handleAgentPage(c: Context<Env>): Promise<Response> {
   return c.html(page);
 }
 
-/** Handler for serving client static assets (`GET /:slug/assets/*`). */
 export async function handleClientAsset(c: Context<Env>): Promise<Response> {
   const slug = c.get("slug");
   const assetPath = c.req.param("path")!;
@@ -35,8 +32,8 @@ export async function handleClientAsset(c: Context<Env>): Promise<Response> {
   );
   if (!content) throw new HTTPException(404, { message: "Asset not found" });
 
-  const ext = assetPath.split(".").pop()!;
-  const contentType = typeByExtension(ext)!;
+  const ext = assetPath.split(".").pop() ?? "";
+  const contentType = typeByExtension(ext) ?? "application/octet-stream";
 
   return c.body(content, 200, {
     "Content-Type": contentType,
@@ -44,7 +41,6 @@ export async function handleClientAsset(c: Context<Env>): Promise<Response> {
   });
 }
 
-/** Handler that upgrades an HTTP request to a WebSocket session. */
 export async function handleWebSocket(c: Context<Env>): Promise<Response> {
   const slug = c.get("slug");
   const sandbox = await _internals.resolveSandbox(slug, {

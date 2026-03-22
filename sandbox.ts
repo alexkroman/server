@@ -15,7 +15,7 @@ import {
   type HostSandbox,
 } from "@aai/sdk/host";
 import WebSocket from "ws";
-import { assertPublicUrl } from "./builtin_tools.ts";
+import { assertPublicUrl } from "./_net.ts";
 import type { KvStore } from "./kv.ts";
 import type { ServerVectorStore } from "./vector.ts";
 import type { AgentScope } from "./scope_token.ts";
@@ -26,7 +26,6 @@ export type { AgentMetadata } from "./_schemas.ts";
 
 // ─── Sandbox types ──────────────────────────────────────────────────────────
 
-/** Options for creating a sandboxed agent worker. */
 export type SandboxOptions = {
   workerCode: string;
   env: Record<string, string>;
@@ -35,7 +34,6 @@ export type SandboxOptions = {
   vectorStore?: ServerVectorStore | undefined;
 };
 
-/** A sandboxed agent worker with methods to manage sessions and lifecycle. */
 export type Sandbox = {
   startSession(socket: WebSocket, skipGreeting?: boolean): void;
   fetch(request: Request): Promise<Response>;
@@ -94,12 +92,6 @@ function scopedVectorOps(vectorStore: ServerVectorStore, scope: AgentScope) {
 
 // ─── Sandbox creation ───────────────────────────────────────────────────────
 
-/**
- * Create a sandboxed agent worker.
- *
- * Spawns a Deno Worker with all permissions disabled, registers host-side
- * RPC handlers as bindings, and initializes the worker.
- */
 export async function createSandbox(opts: SandboxOptions): Promise<Sandbox> {
   const { workerCode, env, kvStore, scope, vectorStore } = opts;
 
@@ -154,10 +146,6 @@ export async function createSandbox(opts: SandboxOptions): Promise<Sandbox> {
 
 const IDLE_MS = 5 * 60 * 1000;
 
-/**
- * Runtime state for a deployed agent, including its sandboxed worker and
- * cached configuration. Managed as a single lifecycle unit.
- */
 export type AgentSlot = {
   slug: string;
   keyHash: string;
@@ -205,13 +193,6 @@ function resetIdleTimer(slot: AgentSlot): void {
   slot.idleTimer = id;
 }
 
-/**
- * Ensures an agent sandbox is running for the given slot.
- *
- * If a sandbox is already active, resets its idle eviction timer. If no
- * sandbox exists, loads the bundle and creates one. Concurrent calls for
- * the same slot coalesce into a single initialization promise.
- */
 export function ensureAgent(
   slot: AgentSlot,
   opts: EnsureOpts,
@@ -242,10 +223,6 @@ export function ensureAgent(
   return slot.initializing;
 }
 
-/**
- * Registers an agent slot from deploy metadata.
- * Unconditional — always registers. Env validation happens at sandbox creation.
- */
 export function registerSlot(
   slots: Map<string, AgentSlot>,
   metadata: AgentMetadata,
@@ -256,12 +233,6 @@ export function registerSlot(
   });
 }
 
-/**
- * Resolves a slug to a running sandbox in one call.
- *
- * Looks up or creates the slot (lazy-loading from the store if needed),
- * then ensures the sandbox is running. Returns null if the agent doesn't exist.
- */
 export async function resolveSandbox(
   slug: string,
   opts: {

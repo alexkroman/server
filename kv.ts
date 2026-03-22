@@ -88,14 +88,12 @@ export function createKvStore(url: string, token: string): KvStore {
       const entries: KvListEntry[] = [];
       for (let i = 0; i < limited.length; i++) {
         const val = values[i];
-        const rk = limited[i];
-        if (val !== null && val !== undefined && rk !== undefined) {
-          const key = rk.slice(prefix.length);
-          try {
-            entries.push({ key, value: JSON.parse(val as string) });
-          } catch {
-            entries.push({ key, value: val });
-          }
+        if (val === null || val === undefined) continue;
+        const key = limited[i]!.slice(prefix.length);
+        try {
+          entries.push({ key, value: JSON.parse(val as string) });
+        } catch {
+          entries.push({ key, value: val });
         }
       }
       return entries;

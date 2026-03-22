@@ -6,7 +6,6 @@ import type { ServerVectorStore } from "./vector.ts";
 import type { AgentScope } from "./scope_token.ts";
 import type { AssetStore, DeployStore } from "./bundle_store_tigris.ts";
 
-/** Hono environment type shared across all routes and handlers. */
 export type Env = {
   Bindings: {
     info: Deno.ServeHandlerInfo;
