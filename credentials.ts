@@ -1,6 +1,6 @@
 // Copyright 2025 the AAI authors. MIT license.
 import { decodeBase64Url, encodeBase64Url } from "@std/encoding/base64url";
-import { decryptAesGcm, encryptAesGcm } from "./_aes_gcm.ts";
+import { decryptAesGcm, encryptAesGcm } from "@std/crypto/unstable-aes-gcm";
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
