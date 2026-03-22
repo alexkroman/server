@@ -17,6 +17,109 @@ export const VALID_ENV = {
   ASSEMBLYAI_API_KEY: "test-key",
 };
 
+// --- Shared worker code strings for sandbox/integration tests ---
+
+/** Minimal worker that handles init, fetch, and WebSocket. */
+export const MINIMAL_WORKER: string = `
+import { CapnwebEndpoint } from "@aai/sdk/capnweb";
+
+const endpoint = new CapnwebEndpoint(globalThis);
+
+endpoint.handle("worker.init", () => null);
+
+endpoint.handle("worker.fetch", (args) => {
+  const [url, method] = args;
+  return {
+    status: 200,
+    headers: { "content-type": "text/plain" },
+    body: "ok from " + method + " " + new URL(url).pathname,
+  };
+});
+
+endpoint.handle("worker.handleWebSocket", () => null);
+`;
+
+/** Worker that exercises KV RPC from inside the sandbox. */
+export const KV_WORKER: string = `
+import { CapnwebEndpoint } from "@aai/sdk/capnweb";
+
+const endpoint = new CapnwebEndpoint(globalThis);
+
+endpoint.handle("worker.init", () => null);
+
+endpoint.handle("worker.fetch", async (args) => {
+  const [url] = args;
+  const u = new URL(url);
+  const op = u.searchParams.get("op");
+
+  if (op === "set") {
+    const key = u.searchParams.get("key") ?? "mykey";
+    const val = u.searchParams.get("val") ?? { hello: "world" };
+    await endpoint.call("host.kv", ["set", key, val, undefined]);
+    return { status: 200, headers: {}, body: "set-ok" };
+  }
+  if (op === "get") {
+    const key = u.searchParams.get("key") ?? "mykey";
+    const val = await endpoint.call("host.kv", ["get", key]);
+    return { status: 200, headers: {}, body: JSON.stringify(val) };
+  }
+  if (op === "del") {
+    const key = u.searchParams.get("key") ?? "mykey";
+    await endpoint.call("host.kv", ["del", key]);
+    return { status: 200, headers: {}, body: "del-ok" };
+  }
+  if (op === "list") {
+    const entries = await endpoint.call("host.kv", ["list", "", undefined, undefined]);
+    return { status: 200, headers: {}, body: JSON.stringify(entries) };
+  }
+  return { status: 404, headers: {}, body: "unknown" };
+});
+
+endpoint.handle("worker.handleWebSocket", () => null);
+`;
+
+/** Worker that exercises vector RPC from inside the sandbox. */
+export const VECTOR_WORKER: string = `
+import { CapnwebEndpoint } from "@aai/sdk/capnweb";
+
+const endpoint = new CapnwebEndpoint(globalThis);
+
+endpoint.handle("worker.init", () => null);
+
+endpoint.handle("worker.fetch", async (args) => {
+  const [url] = args;
+  const u = new URL(url);
+  const op = u.searchParams.get("op");
+
+  if (op === "upsert") {
+    const id = u.searchParams.get("id") ?? "doc1";
+    const data = u.searchParams.get("data") ?? "hello world";
+    await endpoint.call("host.vector", ["upsert", id, data, undefined]);
+    return { status: 200, headers: {}, body: "upsert-ok" };
+  }
+  if (op === "query") {
+    const text = u.searchParams.get("text") ?? "hello";
+    const results = await endpoint.call("host.vector", ["query", text, undefined, undefined]);
+    return { status: 200, headers: {}, body: JSON.stringify(results) };
+  }
+  if (op === "remove") {
+    const ids = (u.searchParams.get("ids") ?? "doc1").split(",");
+    await endpoint.call("host.vector", ["remove", ids]);
+    return { status: 200, headers: {}, body: "remove-ok" };
+  }
+  if (op === "no-store") {
+    try {
+      await endpoint.call("host.vector", ["query", "x"]);
+    } catch (e) {
+      return { status: 200, headers: {}, body: e.message };
+    }
+  }
+  return { status: 404, headers: {}, body: "unknown" };
+});
+
+endpoint.handle("worker.handleWebSocket", () => null);
+`;
+
 export function createTestStore(): BundleStore {
   const objects = new Map<string, string>();
 

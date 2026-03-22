@@ -54,14 +54,23 @@ async function spawnAgent(
   });
 }
 
+/** Terminates and removes the sandbox from a slot, clearing any idle timer. */
+export function evictSlot(slot: AgentSlot): void {
+  if (slot.idleTimer) clearTimeout(slot.idleTimer);
+  delete slot.idleTimer;
+  if (slot.sandbox) {
+    slot.sandbox.terminate();
+    delete slot.sandbox;
+  }
+  delete slot.initializing;
+}
+
 function resetIdleTimer(slot: AgentSlot): void {
   if (slot.idleTimer) clearTimeout(slot.idleTimer);
   const id = setTimeout(() => {
     if (!slot.sandbox) return;
     log.info("Evicting idle sandbox", { slug: slot.slug });
-    slot.sandbox.terminate();
-    delete slot.sandbox;
-    delete slot.idleTimer;
+    evictSlot(slot);
   }, IDLE_MS);
   Deno.unrefTimer(id);
   slot.idleTimer = id;
