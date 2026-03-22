@@ -37,8 +37,8 @@ export async function handleKv(c: Context<Env>): Promise<Response> {
       case "list":
         return c.json({
           result: await kvStore.list(scope, msg.prefix, {
-            ...(msg.limit !== undefined && { limit: msg.limit }),
-            ...(msg.reverse !== undefined && { reverse: msg.reverse }),
+            limit: msg.limit,
+            reverse: msg.reverse,
           }),
         });
     }

@@ -3,7 +3,10 @@ import * as log from "@std/log";
 import { HTTPException } from "hono/http-exception";
 import type { Context } from "hono";
 import type { Env } from "./context.ts";
-import { VectorHttpRequestSchema } from "./_schemas.ts";
+import {
+  type VectorHttpRequest,
+  VectorHttpRequestSchema,
+} from "./_schemas.ts";
 
 /**
  * Handler for the vector operations endpoint (`POST /:slug/vector`).
@@ -22,7 +25,7 @@ export async function handleVector(c: Context<Env>): Promise<Response> {
     });
   }
 
-  let msg: ReturnType<typeof VectorHttpRequestSchema.parse>;
+  let msg: VectorHttpRequest;
   try {
     msg = VectorHttpRequestSchema.parse(await c.req.json());
   } catch {

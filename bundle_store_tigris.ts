@@ -176,16 +176,18 @@ export function createBundleStore(
       );
 
       // Store client build files under agents/{slug}/client/
-      for (const [filePath, content] of Object.entries(bundle.clientFiles)) {
-        const ext = filePath.split(".").pop() ?? "";
-        const contentType = typeByExtension(ext) ??
-          "application/octet-stream";
-        await put(
-          objectKey(bundle.slug, `client/${filePath}`),
-          content,
-          contentType,
-        );
-      }
+      await Promise.all(
+        Object.entries(bundle.clientFiles).map(([filePath, content]) => {
+          const ext = filePath.split(".").pop() ?? "";
+          const contentType = typeByExtension(ext) ??
+            "application/octet-stream";
+          return put(
+            objectKey(bundle.slug, `client/${filePath}`),
+            content,
+            contentType,
+          );
+        }),
+      );
     },
 
     async getManifest(slug) {
@@ -213,8 +215,10 @@ export function createBundleStore(
     deleteAgent,
 
     async getEnv(slug) {
-      const manifest = await store.getManifest(slug);
-      return manifest?.env ?? null;
+      const data = await get(objectKey(slug, "manifest.json"));
+      if (data === null) return null;
+      const raw = JSON.parse(data);
+      return await decryptEnv(credentialKey, { encrypted: raw.env, slug });
     },
 
     async putEnv(slug, env) {

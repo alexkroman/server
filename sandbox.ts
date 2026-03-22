@@ -134,10 +134,7 @@ export async function createSandbox(
           number | undefined,
           boolean | undefined,
         ];
-        const entries = await kvStore.list(scope, prefix, {
-          ...(limit !== undefined ? { limit } : {}),
-          ...(reverse !== undefined ? { reverse } : {}),
-        });
+        const entries = await kvStore.list(scope, prefix, { limit, reverse });
         return entries.map((e) => ({ key: e.key, value: e.value }));
       }
       default:
