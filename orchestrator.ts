@@ -3,6 +3,7 @@ import * as log from "@std/log";
 import { Hono } from "hono";
 import { createMiddleware } from "hono/factory";
 import { cors } from "hono/cors";
+import { secureHeaders } from "hono/secure-headers";
 import { HTTPException } from "hono/http-exception";
 import type { AppState, Env } from "./context.ts";
 import { handleDeploy } from "./deploy.ts";
@@ -93,11 +94,13 @@ export function createOrchestrator(opts: {
   });
 
   app.use("*", cors());
+  app.use("*", secureHeaders({
+    crossOriginOpenerPolicy: "same-origin",
+    crossOriginEmbedderPolicy: "credentialless",
+  }));
   app.use("*", async (c, next) => {
     c.set("state", state);
     await next();
-    c.header("Cross-Origin-Opener-Policy", "same-origin");
-    c.header("Cross-Origin-Embedder-Policy", "credentialless");
   });
   app.use("*", async (c, next) => {
     const start = performance.now();
