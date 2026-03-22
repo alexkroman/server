@@ -3,56 +3,36 @@
 // These validate untrusted input at HTTP/WebSocket boundaries.
 
 import { z } from "zod";
-import type { KvRequest } from "@aai/sdk/protocol";
-
-/** Deploy request body sent by the CLI. */
-export type DeployBody = {
-  env?: Record<string, string> | undefined;
-  worker: string;
-  clientFiles: Record<string, string>;
-};
 
 /** Zod schema for validating the deploy request body. */
-export const DeployBodySchema: z.ZodType<DeployBody> = z.object({
+export const DeployBodySchema = z.object({
   env: z.record(z.string(), z.string()).optional(),
   worker: z.string().min(1).max(10_000_000),
   clientFiles: z.record(z.string(), z.string()),
-}) as z.ZodType<DeployBody>;
+});
+
+/** Deploy request body sent by the CLI. */
+export type DeployBody = z.infer<typeof DeployBodySchema>;
 
 /** Zod schema for validating agent environment variables (requires `ASSEMBLYAI_API_KEY`). */
 export const EnvSchema = z.object({
   ASSEMBLYAI_API_KEY: z.string().min(1),
 }).catchall(z.string());
 
-/** Metadata stored alongside an agent bundle in the bundle store. */
-export type AgentMetadata = {
-  /** The agent's unique slug identifier. */
-  slug: string;
-  /** Environment variables provided at deploy time. */
-  env: Record<string, string>;
-  /** SHA-256 hashes of API keys authorized to manage this agent. */
-  "credential_hashes": string[];
-};
-
 /** Zod schema for validating agent metadata from the bundle store. */
 export const AgentMetadataSchema = z.object({
   slug: z.string(),
   env: z.record(z.string(), z.string()).default({}),
   credential_hashes: z.array(z.string()).default([]),
-}) as unknown as z.ZodType<AgentMetadata>;
+});
+
+/** Metadata stored alongside an agent bundle in the bundle store. */
+export type AgentMetadata = z.infer<typeof AgentMetadataSchema>;
 
 // ─── KV schemas ─────────────────────────────────────────────────────────────
 
-/**
- * KV HTTP request type extending the core KV operations with the
- * server-only `keys` operation.
- */
-export type KvHttpRequest =
-  | KvRequest
-  | { op: "keys"; pattern?: string | undefined };
-
 /** Zod schema for validating KV HTTP request bodies (get, set, del, list, keys). */
-export const KvHttpRequestSchema: z.ZodType<KvHttpRequest> = z
+export const KvHttpRequestSchema = z
   .discriminatedUnion("op", [
     z.object({ op: z.literal("get"), key: z.string().min(1) }),
     z.object({
@@ -71,28 +51,13 @@ export const KvHttpRequestSchema: z.ZodType<KvHttpRequest> = z
     z.object({ op: z.literal("keys"), pattern: z.string().optional() }),
   ]);
 
+/** KV HTTP request type (core ops + server-only `keys`). */
+export type KvHttpRequest = z.infer<typeof KvHttpRequestSchema>;
+
 // ─── Vector schemas ──────────────────────────────────────────────────────────
 
-/**
- * Vector HTTP request type for the external `POST /:slug/vector` endpoint.
- * Supports upsert (used by `aai rag`) and query.
- */
-export type VectorHttpRequest =
-  | {
-    op: "upsert";
-    id: string;
-    data: string;
-    metadata?: Record<string, unknown> | undefined;
-  }
-  | {
-    op: "query";
-    text: string;
-    topK?: number | undefined;
-    filter?: string | undefined;
-  };
-
 /** Zod schema for validating Vector HTTP request bodies (upsert, query). */
-export const VectorHttpRequestSchema: z.ZodType<VectorHttpRequest> = z
+export const VectorHttpRequestSchema = z
   .discriminatedUnion("op", [
     z.object({
       op: z.literal("upsert"),
@@ -107,6 +72,9 @@ export const VectorHttpRequestSchema: z.ZodType<VectorHttpRequest> = z
       filter: z.string().optional(),
     }),
   ]);
+
+/** Vector HTTP request type (upsert, query). */
+export type VectorHttpRequest = z.infer<typeof VectorHttpRequestSchema>;
 
 // ─── Secret schemas ─────────────────────────────────────────────────────────
 
