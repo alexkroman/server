@@ -1,11 +1,10 @@
 // Copyright 2025 the AAI authors. MIT license.
-import { decodeBase64Url, encodeBase64Url } from "@std/encoding/base64url";
+import { SignJWT, jwtVerify } from "jose";
 
 export type AgentScope = { keyHash: string; slug: string };
 export type ScopeKey = CryptoKey;
 
 const enc = new TextEncoder();
-const dec = new TextDecoder();
 
 export async function importScopeKey(secret: string): Promise<ScopeKey> {
   const ikm = await crypto.subtle.importKey(
@@ -34,20 +33,14 @@ export async function importScopeKey(secret: string): Promise<ScopeKey> {
   );
 }
 
-const HEADER = encodeBase64Url(
-  enc.encode(JSON.stringify({ alg: "HS256", typ: "JWT" })),
-);
-
 export async function signScopeToken(
   key: ScopeKey,
   scope: AgentScope,
 ): Promise<string> {
-  const payload = encodeBase64Url(
-    enc.encode(JSON.stringify({ sub: scope.keyHash, scope: scope.slug })),
-  );
-  const signingInput = `${HEADER}.${payload}`;
-  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(signingInput));
-  return `${signingInput}.${encodeBase64Url(sig)}`;
+  return await new SignJWT({ scope: scope.slug })
+    .setProtectedHeader({ alg: "HS256" })
+    .setSubject(scope.keyHash)
+    .sign(key);
 }
 
 export async function verifyScopeToken(
@@ -55,21 +48,11 @@ export async function verifyScopeToken(
   token: string,
 ): Promise<AgentScope | null> {
   try {
-    const [header, payload, signature, ...rest] = token.split(".");
-    if (!header || !payload || !signature || rest.length > 0) return null;
-    const signingInput = `${header}.${payload}`;
-    const sig = decodeBase64Url(signature);
-    const valid = await crypto.subtle.verify(
-      "HMAC",
-      key,
-      sig,
-      enc.encode(signingInput),
-    );
-    if (!valid) return null;
-
-    const claims = JSON.parse(dec.decode(decodeBase64Url(payload)));
-    const sub = claims.sub;
-    const scope = claims.scope;
+    const { payload } = await jwtVerify(token, key, {
+      algorithms: ["HS256"],
+    });
+    const sub = payload.sub;
+    const scope = payload.scope;
     if (
       typeof sub !== "string" || typeof scope !== "string" || !sub || !scope
     ) {

@@ -48,6 +48,8 @@
     "@upstash/vector": "npm:@upstash/vector@^1",
 
     "hono": "npm:hono@^4",
+    "@hono/standard-validator": "npm:@hono/standard-validator@^2",
+    "jose": "npm:jose@^6",
     "ws": "npm:ws@^8",
     "markdownlint-cli": "npm:markdownlint-cli@^0.44.0"
   },
