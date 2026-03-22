@@ -6,14 +6,13 @@ import {
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
-import type { AgentMetadata } from "./worker_pool.ts";
+import type { AgentMetadata } from "./_schemas.ts";
 import { AgentMetadataSchema } from "./_schemas.ts";
 import { type CredentialKey, decryptEnv, encryptEnv } from "./credentials.ts";
 import { typeByExtension } from "@std/media-types";
 
-export type FileKey = "worker" | "html";
-
-export type BundleStore = {
+/** Deploy-time and runtime operations (manifest, worker code, env). */
+export type DeployStore = {
   putAgent(bundle: {
     slug: string;
     env: Record<string, string>;
@@ -22,24 +21,23 @@ export type BundleStore = {
     credential_hashes: string[];
   }): Promise<void>;
   getManifest(slug: string): Promise<AgentMetadata | null>;
-  getFile(slug: string, file: FileKey): Promise<string | null>;
-  /** Get a client build file by relative path (e.g. "index.html", "assets/index-abc.js"). */
-  getClientFile(slug: string, filePath: string): Promise<string | null>;
+  getWorkerCode(slug: string): Promise<string | null>;
   deleteAgent(slug: string): Promise<void>;
-  /** Read env vars for a slug from the stored manifest. */
   getEnv(slug: string): Promise<Record<string, string> | null>;
-  /** Update env vars for a slug without redeploying the worker. */
   putEnv(slug: string, env: Record<string, string>): Promise<void>;
 };
+
+/** Static asset serving (client HTML, JS, CSS). */
+export type AssetStore = {
+  getClientFile(slug: string, filePath: string): Promise<string | null>;
+};
+
+/** Combined store — both deploy and asset operations. */
+export type BundleStore = DeployStore & AssetStore;
 
 type CacheEntry = {
   data: string;
   etag: string;
-};
-
-const FILE_NAMES: Record<FileKey, string> = {
-  worker: "worker.js",
-  html: "index.html",
 };
 
 function objectKey(slug: string, file: string): string {
@@ -150,13 +148,21 @@ export function createBundleStore(
     }
   }
 
+  async function getRawManifest(
+    slug: string,
+  ): Promise<Record<string, unknown> | null> {
+    const data = await get(objectKey(slug, "manifest.json"));
+    if (data === null) return null;
+    return JSON.parse(data);
+  }
+
   const store: BundleStore = {
     async putAgent(bundle) {
       await deleteAgent(bundle.slug);
 
       const manifest = {
         slug: bundle.slug,
-        env: await encryptEnv(credentialKey, {
+        env: encryptEnv(credentialKey, {
           env: bundle.env,
           slug: bundle.slug,
         }),
@@ -176,34 +182,37 @@ export function createBundleStore(
       );
 
       // Store client build files under agents/{slug}/client/
-      for (const [filePath, content] of Object.entries(bundle.clientFiles)) {
-        const ext = filePath.split(".").pop() ?? "";
-        const contentType = typeByExtension(ext) ??
-          "application/octet-stream";
-        await put(
-          objectKey(bundle.slug, `client/${filePath}`),
-          content,
-          contentType,
-        );
-      }
+      await Promise.all(
+        Object.entries(bundle.clientFiles).map(([filePath, content]) => {
+          const ext = filePath.split(".").pop() ?? "";
+          const contentType = typeByExtension(ext) ??
+            "application/octet-stream";
+          return put(
+            objectKey(bundle.slug, `client/${filePath}`),
+            content,
+            contentType,
+          );
+        }),
+      );
     },
 
     async getManifest(slug) {
-      const data = await get(objectKey(slug, "manifest.json"));
-      if (data === null) return null;
-      const raw = JSON.parse(data);
+      const raw = await getRawManifest(slug);
+      if (!raw) return null;
 
-      raw.env = await decryptEnv(credentialKey, { encrypted: raw.env, slug });
+      raw.env = decryptEnv(credentialKey, {
+        encrypted: raw.env as string,
+        slug,
+      });
       delete raw.envEncrypted;
 
       const parsed = AgentMetadataSchema.safeParse(raw);
       if (!parsed.success) return null;
-      return parsed.data as AgentMetadata;
+      return parsed.data;
     },
 
-    async getFile(slug, file) {
-      const fileName = FILE_NAMES[file];
-      return await get(objectKey(slug, fileName));
+    async getWorkerCode(slug) {
+      return await get(objectKey(slug, "worker.js"));
     },
 
     async getClientFile(slug, filePath) {
@@ -213,15 +222,18 @@ export function createBundleStore(
     deleteAgent,
 
     async getEnv(slug) {
-      const manifest = await store.getManifest(slug);
-      return manifest?.env ?? null;
+      const raw = await getRawManifest(slug);
+      if (!raw) return null;
+      return decryptEnv(credentialKey, {
+        encrypted: raw.env as string,
+        slug,
+      });
     },
 
     async putEnv(slug, env) {
-      const data = await get(objectKey(slug, "manifest.json"));
-      if (data === null) throw new Error(`Agent ${slug} not found`);
-      const raw = JSON.parse(data);
-      raw.env = await encryptEnv(credentialKey, { env, slug });
+      const raw = await getRawManifest(slug);
+      if (!raw) throw new Error(`Agent ${slug} not found`);
+      raw.env = encryptEnv(credentialKey, { env, slug });
       raw.envEncrypted = true;
       await put(
         objectKey(slug, "manifest.json"),

@@ -3,9 +3,9 @@ import type { BundleStore } from "./bundle_store_tigris.ts";
 import { importScopeKey, type ScopeKey } from "./scope_token.ts";
 import type { KvStore } from "./kv.ts";
 import type { ServerVectorStore } from "./vector.ts";
-import type { AgentMetadata, AgentSlot } from "./worker_pool.ts";
+import type { AgentSlot } from "./sandbox.ts";
 import { sortAndPaginate } from "@aai/sdk/kv";
-import { AgentMetadataSchema } from "./_schemas.ts";
+import { type AgentMetadata, AgentMetadataSchema } from "./_schemas.ts";
 import { createOrchestrator } from "./orchestrator.ts";
 
 export const DUMMY_INFO: Deno.ServeHandlerInfo = {
@@ -55,21 +55,21 @@ endpoint.handle("worker.fetch", async (args) => {
   if (op === "set") {
     const key = u.searchParams.get("key") ?? "mykey";
     const val = u.searchParams.get("val") ?? { hello: "world" };
-    await endpoint.call("host.kv", ["set", key, val, undefined]);
+    await endpoint.call("kv.set", [key, val, undefined]);
     return { status: 200, headers: {}, body: "set-ok" };
   }
   if (op === "get") {
     const key = u.searchParams.get("key") ?? "mykey";
-    const val = await endpoint.call("host.kv", ["get", key]);
+    const val = await endpoint.call("kv.get", [key]);
     return { status: 200, headers: {}, body: JSON.stringify(val) };
   }
   if (op === "del") {
     const key = u.searchParams.get("key") ?? "mykey";
-    await endpoint.call("host.kv", ["del", key]);
+    await endpoint.call("kv.del", [key]);
     return { status: 200, headers: {}, body: "del-ok" };
   }
   if (op === "list") {
-    const entries = await endpoint.call("host.kv", ["list", "", undefined, undefined]);
+    const entries = await endpoint.call("kv.list", ["", undefined, undefined]);
     return { status: 200, headers: {}, body: JSON.stringify(entries) };
   }
   return { status: 404, headers: {}, body: "unknown" };
@@ -94,22 +94,22 @@ endpoint.handle("worker.fetch", async (args) => {
   if (op === "upsert") {
     const id = u.searchParams.get("id") ?? "doc1";
     const data = u.searchParams.get("data") ?? "hello world";
-    await endpoint.call("host.vector", ["upsert", id, data, undefined]);
+    await endpoint.call("vec.upsert", [id, data, undefined]);
     return { status: 200, headers: {}, body: "upsert-ok" };
   }
   if (op === "query") {
     const text = u.searchParams.get("text") ?? "hello";
-    const results = await endpoint.call("host.vector", ["query", text, undefined, undefined]);
+    const results = await endpoint.call("vec.query", [text, undefined, undefined]);
     return { status: 200, headers: {}, body: JSON.stringify(results) };
   }
   if (op === "remove") {
     const ids = (u.searchParams.get("ids") ?? "doc1").split(",");
-    await endpoint.call("host.vector", ["remove", ids]);
+    await endpoint.call("vec.remove", [ids]);
     return { status: 200, headers: {}, body: "remove-ok" };
   }
   if (op === "no-store") {
     try {
-      await endpoint.call("host.vector", ["query", "x"]);
+      await endpoint.call("vec.query", ["x"]);
     } catch (e) {
       return { status: 200, headers: {}, body: e.message };
     }
@@ -160,15 +160,9 @@ export function createTestStore(): BundleStore {
       return Promise.resolve(parsed.data as AgentMetadata);
     },
 
-    getFile(slug, file) {
-      const fileNames: Record<string, string> = {
-        worker: "worker.js",
-        html: "index.html",
-      };
-      const fileName = fileNames[file];
-      if (!fileName) return Promise.resolve(null);
+    getWorkerCode(slug) {
       return Promise.resolve(
-        objects.get(objectKey(slug, fileName)) ?? null,
+        objects.get(objectKey(slug, "worker.js")) ?? null,
       );
     },
 
@@ -206,7 +200,7 @@ export function createTestStore(): BundleStore {
   };
 }
 
-export function createTestScopeKey(): Promise<ScopeKey> {
+export function createTestScopeKey(): ScopeKey {
   return importScopeKey("test-secret-for-tests-only");
 }
 

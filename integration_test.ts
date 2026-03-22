@@ -4,7 +4,7 @@
  *
  * These tests spin up a real sandbox (Deno Worker) to verify that deployed
  * agent code can actually be loaded and executed — catching regressions in
- * the bundle store → worker pool → transport chain.
+ * the bundle store → sandbox → transport chain.
  */
 import {
   assert,
@@ -23,8 +23,7 @@ import {
   type TestFetch,
   VECTOR_WORKER,
 } from "./_test_utils.ts";
-import { createSandbox } from "./sandbox.ts";
-import { evictSlot } from "./worker_pool.ts";
+import { createSandbox, evictSlot, resolveSandbox } from "./sandbox.ts";
 
 const CLIENT_HTML =
   '<!DOCTYPE html><html><head><title>Test Agent</title></head><body><div id="app"></div><script type="module" src="./assets/index.js"></script></body></html>';
@@ -113,19 +112,9 @@ Deno.test({
     const { fetch, store, kvStore } = await createTestOrchestrator();
     await deployRealAgent(fetch);
 
-    const { discoverSlot } = await import("./transport_websocket.ts");
-    const { prepareSession } = await import("./worker_pool.ts");
-
     const slots = new Map();
-    const manifest = await store.getManifest("test-agent");
-    assert(manifest);
-
-    const slot = await discoverSlot("test-agent", { slots, store });
-    assert(slot);
-    assertStrictEquals(slot.slug, "test-agent");
-
-    const sandbox = await prepareSession(slot, {
-      slug: "test-agent",
+    const sandbox = await resolveSandbox("test-agent", {
+      slots,
       store,
       kvStore,
     });
@@ -242,7 +231,6 @@ Deno.test({
     const { createOrchestrator } = await import("./orchestrator.ts");
     const app = createOrchestrator({ store, scopeKey, kvStore, vectorStore });
 
-    // Deploy an agent into the store
     await store.putAgent({
       slug: "ws-agent",
       env: { ASSEMBLYAI_API_KEY: "test-key" },
@@ -251,7 +239,6 @@ Deno.test({
       credential_hashes: [],
     });
 
-    // Start a real HTTP server
     const ac = new AbortController();
     const server = Deno.serve(
       { port: 0, signal: ac.signal, onListen: () => {} },
@@ -261,11 +248,9 @@ Deno.test({
     const baseUrl = `http://localhost:${addr.port}`;
 
     try {
-      // Verify the agent is reachable via HTTP first
       const healthRes = await globalThis.fetch(`${baseUrl}/ws-agent/health`);
       assertEquals(healthRes.status, 200);
 
-      // Connect via real WebSocket
       const ws = new WebSocket(
         `ws://localhost:${addr.port}/ws-agent/websocket`,
       );
@@ -279,7 +264,6 @@ Deno.test({
       assertStrictEquals(ws.readyState, WebSocket.OPEN);
       ws.close();
 
-      // Wait for close
       await new Promise<void>((resolve) => {
         ws.onclose = () => resolve();
       });
@@ -308,23 +292,19 @@ Deno.test({
     });
 
     try {
-      // Set a key through the worker → host.kv RPC
       const setRes = await sandbox.fetch(
         new Request("http://x?op=set&key=greeting&val=hello"),
       );
       assertStrictEquals(await setRes.text(), "set-ok");
 
-      // Get it back through the same RPC chain
       const getRes = await sandbox.fetch(
         new Request("http://x?op=get&key=greeting"),
       );
       assertStrictEquals(await getRes.text(), '"hello"');
 
-      // Verify it actually landed in the backing store
       const raw = await kvStore.get(SCOPE, "greeting");
       assertStrictEquals(raw, '"hello"');
 
-      // List all entries
       const listRes = await sandbox.fetch(
         new Request("http://x?op=list"),
       );
@@ -357,13 +337,11 @@ Deno.test({
     });
 
     try {
-      // Upsert through worker → host.vector RPC
       const upsertRes = await sandbox.fetch(
         new Request("http://x?op=upsert&id=doc1&data=hello+world"),
       );
       assertStrictEquals(await upsertRes.text(), "upsert-ok");
 
-      // Query back through the same RPC chain
       const queryRes = await sandbox.fetch(
         new Request("http://x?op=query&text=hello"),
       );
@@ -405,18 +383,15 @@ Deno.test({
     });
 
     try {
-      // Agent A writes a key
       await sandboxA.fetch(
         new Request("http://x?op=set&key=secret&val=a-data"),
       );
 
-      // Agent B cannot see agent A's key
       const bGet = await sandboxB.fetch(
         new Request("http://x?op=get&key=secret"),
       );
       assertStrictEquals(await bGet.text(), "null");
 
-      // Agent A can see its own key
       const aGet = await sandboxA.fetch(
         new Request("http://x?op=get&key=secret"),
       );
@@ -440,24 +415,20 @@ Deno.test({
     const { fetch, store, kvStore } = await createTestOrchestrator();
     await deployRealAgent(fetch);
 
-    const { discoverSlot } = await import("./transport_websocket.ts");
-    const { prepareSession } = await import("./worker_pool.ts");
-
     const slots = new Map();
-    const slot = await discoverSlot("test-agent", { slots, store });
-    assert(slot);
 
     // First load — creates sandbox
-    const sandbox1 = await prepareSession(slot, {
-      slug: "test-agent",
+    const sandbox1 = await resolveSandbox("test-agent", {
+      slots,
       store,
       kvStore,
     });
     assert(sandbox1);
+
+    const slot = slots.get("test-agent")!;
     assert(slot.sandbox);
     assert(slot.idleTimer !== undefined);
 
-    // Verify sandbox works
     const res1 = await sandbox1.fetch(
       new Request("http://localhost/ping"),
     );
@@ -466,19 +437,17 @@ Deno.test({
     // Simulate idle eviction
     evictSlot(slot);
 
-    // Slot should have no sandbox now
     assertStrictEquals(slot.sandbox, undefined);
 
-    // Next prepareSession should re-create the sandbox
-    const sandbox2 = await prepareSession(slot, {
-      slug: "test-agent",
+    // resolveSandbox should re-create the sandbox
+    const sandbox2 = await resolveSandbox("test-agent", {
+      slots,
       store,
       kvStore,
     });
     assert(sandbox2);
     assert(slot.sandbox);
 
-    // New sandbox should work
     const res2 = await sandbox2.fetch(
       new Request("http://localhost/ping2"),
     );
@@ -506,7 +475,6 @@ Deno.test("integration: two agents serve independent content", async () => {
     clientFiles: { "index.html": htmlB, "assets/app.js": "beta();" },
   });
 
-  // Each agent serves its own HTML
   const pageA = await fetch("/agent-alpha/");
   assertEquals(pageA.status, 200);
   assertStringIncludes(await pageA.text(), "Agent Alpha");
@@ -515,14 +483,12 @@ Deno.test("integration: two agents serve independent content", async () => {
   assertEquals(pageB.status, 200);
   assertStringIncludes(await pageB.text(), "Agent Beta");
 
-  // Each agent serves its own assets
   const assetA = await fetch("/agent-alpha/assets/app.js");
   assertStringIncludes(await assetA.text(), "alpha()");
 
   const assetB = await fetch("/agent-beta/assets/app.js");
   assertStringIncludes(await assetB.text(), "beta()");
 
-  // Health checks are independent
   assertEquals(
     (await (await fetch("/agent-alpha/health")).json()).slug,
     "agent-alpha",
@@ -540,7 +506,6 @@ Deno.test({
   async fn() {
     const { fetch, store, kvStore } = await createTestOrchestrator();
 
-    // Deploy two agents with KV-capable worker code
     await fetch("/agent-aa/deploy", {
       method: "POST",
       headers: {
@@ -558,40 +523,33 @@ Deno.test({
       body: deployBody({ worker: KV_WORKER }),
     });
 
-    const { discoverSlot } = await import("./transport_websocket.ts");
-    const { prepareSession } = await import("./worker_pool.ts");
+    const slots = new Map();
+    const sandboxA = await resolveSandbox("agent-aa", {
+      slots,
+      store,
+      kvStore,
+    });
+    const sandboxB = await resolveSandbox("agent-bb", {
+      slots,
+      store,
+      kvStore,
+    });
+    assert(sandboxA);
+    assert(sandboxB);
 
-    // Load sandboxes for both agents
-    const slotsMap = new Map();
-    const slotA = await discoverSlot("agent-aa", { slots: slotsMap, store });
-    const slotB = await discoverSlot("agent-bb", { slots: slotsMap, store });
-    assert(slotA);
-    assert(slotB);
+    const slotA = slots.get("agent-aa")!;
+    const slotB = slots.get("agent-bb")!;
     assertNotStrictEquals(slotA.keyHash, slotB.keyHash);
 
-    const sandboxA = await prepareSession(slotA, {
-      slug: "agent-aa",
-      store,
-      kvStore,
-    });
-    const sandboxB = await prepareSession(slotB, {
-      slug: "agent-bb",
-      store,
-      kvStore,
-    });
-
     try {
-      // Agent A writes to KV
       await sandboxA.fetch(
         new Request("http://x?op=set&key=data&val=from-A"),
       );
 
-      // Agent B writes to KV with same key name
       await sandboxB.fetch(
         new Request("http://x?op=set&key=data&val=from-B"),
       );
 
-      // Each agent only sees its own data
       const aVal = await sandboxA.fetch(
         new Request("http://x?op=get&key=data"),
       );

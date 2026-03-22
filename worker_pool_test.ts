@@ -3,39 +3,36 @@ import { assert, assertRejects, assertStrictEquals } from "@std/assert";
 import {
   type AgentSlot,
   ensureAgent,
-  prepareSession,
   registerSlot,
-} from "./worker_pool.ts";
+  resolveSandbox,
+} from "./sandbox.ts";
 import {
   createTestKvStore,
   createTestStore,
-  createTestVectorStore,
   makeSlot,
   VALID_ENV,
 } from "./_test_utils.ts";
 
 // --- registerSlot ---
 
-Deno.test("registerSlot with valid env", () => {
+Deno.test("registerSlot always registers", () => {
   const slots = new Map<string, AgentSlot>();
-  const ok = registerSlot(slots, {
+  registerSlot(slots, {
     slug: "hello",
     env: VALID_ENV,
     credential_hashes: ["hash1"],
   });
-  assertStrictEquals(ok, true);
   assertStrictEquals(slots.has("hello"), true);
 });
 
-Deno.test("registerSlot returns false for invalid env", () => {
+Deno.test("registerSlot registers even with empty env", () => {
   const slots = new Map<string, AgentSlot>();
-  const ok = registerSlot(slots, {
+  registerSlot(slots, {
     slug: "bad",
     env: {},
     credential_hashes: [],
   });
-  assertStrictEquals(ok, false);
-  assertStrictEquals(slots.has("bad"), false);
+  assertStrictEquals(slots.has("bad"), true);
 });
 
 Deno.test("registerSlot overwrites existing slot", () => {
@@ -66,20 +63,11 @@ Deno.test("registerSlot stores first credential hash as keyHash", () => {
 Deno.test("registerSlot uses empty string keyHash when no credential_hashes", () => {
   const slots = new Map<string, AgentSlot>();
   registerSlot(slots, {
-    slug: "s",
-    env: VALID_ENV,
-    credential_hashes: [],
-  });
-  // env is invalid without ASSEMBLYAI_API_KEY so this returns false,
-  // but with valid env and empty creds:
-  const ok = registerSlot(slots, {
     slug: "s2",
     env: VALID_ENV,
     credential_hashes: [],
   });
-  if (ok) {
-    assertStrictEquals(slots.get("s2")!.keyHash, "");
-  }
+  assertStrictEquals(slots.get("s2")!.keyHash, "");
 });
 
 // --- ensureAgent ---
@@ -157,33 +145,24 @@ Deno.test("ensureAgent cleans up initializing on error", async () => {
   assertStrictEquals(slot.initializing, undefined);
 });
 
-// --- prepareSession ---
+// --- resolveSandbox ---
 
 Deno.test({
-  name: "prepareSession returns sandbox from slot",
-  sanitizeResources: false,
+  name: "resolveSandbox returns null for unknown agent",
   async fn() {
-    const fakeSandbox = {
-      startSession() {},
-      fetch: () => Promise.resolve(new Response()),
-      terminate() {},
-    };
-    const slot = makeSlot({ sandbox: fakeSandbox });
     const store = createTestStore();
     const kvStore = createTestKvStore();
-
-    const sandbox = await prepareSession(slot, {
-      slug: "test-agent",
+    const result = await resolveSandbox("missing", {
+      slots: new Map(),
       store,
       kvStore,
     });
-    assertStrictEquals(sandbox, fakeSandbox);
-    if (slot.idleTimer) clearTimeout(slot.idleTimer);
+    assertStrictEquals(result, null);
   },
 });
 
 Deno.test({
-  name: "prepareSession passes vectorStore when provided",
+  name: "resolveSandbox returns sandbox from existing slot",
   sanitizeResources: false,
   async fn() {
     const fakeSandbox = {
@@ -191,18 +170,18 @@ Deno.test({
       fetch: () => Promise.resolve(new Response()),
       terminate() {},
     };
-    const slot = makeSlot({ sandbox: fakeSandbox });
+    const slots = new Map<string, AgentSlot>();
+    slots.set("test-agent", makeSlot({ sandbox: fakeSandbox }));
     const store = createTestStore();
     const kvStore = createTestKvStore();
-    const vectorStore = createTestVectorStore();
 
-    const sandbox = await prepareSession(slot, {
-      slug: "test-agent",
+    const sandbox = await resolveSandbox("test-agent", {
+      slots,
       store,
       kvStore,
-      vectorStore,
     });
     assertStrictEquals(sandbox, fakeSandbox);
+    const slot = slots.get("test-agent")!;
     if (slot.idleTimer) clearTimeout(slot.idleTimer);
   },
 });

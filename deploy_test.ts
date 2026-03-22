@@ -160,6 +160,6 @@ Deno.test("deploy replaces existing agent bundle", async () => {
   });
   assertEquals(res.status, 200);
 
-  const workerCode = await store.getFile("my-agent", "worker");
+  const workerCode = await store.getWorkerCode("my-agent");
   assertStrictEquals(workerCode, "console.log('v2');");
 });

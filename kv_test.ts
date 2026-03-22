@@ -11,13 +11,13 @@ Deno.test("scope tokens", async (t) => {
   const scope: AgentScope = { keyHash: "abc123", slug: "my-agent" };
 
   await t.step("round-trips a scope", async () => {
-    const key = await importScopeKey("test-secret");
+    const key = importScopeKey("test-secret");
     const token = await signScopeToken(key, scope);
     assertEquals(await verifyScopeToken(key, token), scope);
   });
 
   await t.step("rejects tampered token", async () => {
-    const key = await importScopeKey("test-secret");
+    const key = importScopeKey("test-secret");
     const token = await signScopeToken(key, scope);
     const mid = Math.floor(token.length / 2);
     const tampered = token.slice(0, mid) +
@@ -27,13 +27,13 @@ Deno.test("scope tokens", async (t) => {
   });
 
   await t.step("rejects garbage", async () => {
-    const key = await importScopeKey("test-secret");
+    const key = importScopeKey("test-secret");
     assertEquals(await verifyScopeToken(key, "not-a-token"), null);
     assertEquals(await verifyScopeToken(key, ""), null);
   });
 
   await t.step("different scopes produce different tokens", async () => {
-    const key = await importScopeKey("test-secret");
+    const key = importScopeKey("test-secret");
     const other: AgentScope = { keyHash: "abc123", slug: "other-agent" };
     assertNotEquals(
       await signScopeToken(key, scope),
@@ -42,8 +42,8 @@ Deno.test("scope tokens", async (t) => {
   });
 
   await t.step("wrong key rejects token", async () => {
-    const key1 = await importScopeKey("key-one");
-    const key2 = await importScopeKey("key-two");
+    const key1 = importScopeKey("key-one");
+    const key2 = importScopeKey("key-two");
     const token = await signScopeToken(key1, scope);
     assertEquals(await verifyScopeToken(key2, token), null);
   });

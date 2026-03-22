@@ -27,7 +27,7 @@ Deno.test("returns Prometheus metrics", async () => {
   const res = await fetch("/metrics");
   assertEquals(res.status, 200);
   assertEquals(res.headers.get("Content-Type"), "text/plain; version=0.0.4");
-  assertStringIncludes(await res.text(), "aai_sessions_total");
+  assertStringIncludes(await res.text(), "http_requests_total");
 });
 
 Deno.test("returns 404 for unknown paths", async () => {
@@ -193,9 +193,9 @@ Deno.test("websocket upgrades for deployed agent", async () => {
       response: new Response(null, { status: 101 }),
     }),
   );
-  using _prepareStub = stub(
+  using _resolveStub = stub(
     _wsInternals,
-    "prepareSession",
+    "resolveSandbox",
     (() =>
       Promise.resolve({
         startSession: () => {},
@@ -229,8 +229,8 @@ Deno.test("per-agent metrics returns Prometheus format", async () => {
   assertEquals(res.status, 200);
   assertEquals(res.headers.get("Content-Type"), "text/plain; version=0.0.4");
   const body = await res.text();
-  assertStringIncludes(body, "aai_sessions_total");
-  assertStringIncludes(body, "aai_sessions_active");
+  assertStringIncludes(body, "http_requests_total");
+  assertStringIncludes(body, "http_request_duration_seconds");
 });
 
 // =============================================================================
