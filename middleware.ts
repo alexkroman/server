@@ -7,6 +7,7 @@ import {
   verifyScopeToken,
 } from "./scope_token.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
+import { isPrivateIp } from "./private_ip.ts";
 
 const VALID_SLUG_REGEXP = /^[a-z0-9][a-z0-9_-]{0,62}[a-z0-9]$/;
 
@@ -65,18 +66,6 @@ export function requireInternal(
   if (!isPrivateIp(ip)) {
     throw new HTTPException(403, { message: "Forbidden" });
   }
-}
-
-function isPrivateIp(ip: string): boolean {
-  if (!ip) return false;
-  return (
-    ip === "127.0.0.1" ||
-    ip === "::1" ||
-    ip.startsWith("10.") ||
-    ip.startsWith("172.") ||
-    ip.startsWith("192.168.") ||
-    ip.startsWith("fdaa:") // Fly.io private network
-  );
 }
 
 /** Verify scope token from Authorization header. Returns the decoded scope. */
