@@ -1,6 +1,6 @@
 // Copyright 2025 the AAI authors. MIT license.
 import { assertRejects } from "@std/assert";
-import { assertPublicUrl } from "./builtin_tools.ts";
+import { assertPublicUrl } from "./sandbox.ts";
 
 Deno.test("assertPublicUrl blocks localhost", async () => {
   await assertRejects(

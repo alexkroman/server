@@ -2,35 +2,11 @@
 import { SignJWT, jwtVerify } from "jose";
 
 export type AgentScope = { keyHash: string; slug: string };
-export type ScopeKey = CryptoKey;
+export type ScopeKey = Uint8Array;
 
-const enc = new TextEncoder();
-
-export async function importScopeKey(secret: string): Promise<ScopeKey> {
-  const ikm = await crypto.subtle.importKey(
-    "raw",
-    enc.encode(secret),
-    "HKDF",
-    false,
-    ["deriveBits"],
-  );
-  const bits = await crypto.subtle.deriveBits(
-    {
-      name: "HKDF",
-      hash: "SHA-256",
-      salt: enc.encode("aai-scope-token"),
-      info: enc.encode("scope-signing"),
-    },
-    ikm,
-    256,
-  );
-  return await crypto.subtle.importKey(
-    "raw",
-    bits,
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign", "verify"],
-  );
+/** Encode a secret string as a signing key for scope tokens. */
+export function importScopeKey(secret: string): ScopeKey {
+  return new TextEncoder().encode(secret);
 }
 
 export async function signScopeToken(

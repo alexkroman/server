@@ -1,13 +1,44 @@
 // Copyright 2025 the AAI authors. MIT license.
+import { encodeHex } from "@std/encoding/hex";
+import { matchSubnets } from "@std/net/unstable-ip";
 import { HTTPException } from "hono/http-exception";
-import { verifySlugOwner } from "./auth.ts";
 import {
   type AgentScope,
   type ScopeKey,
   verifyScopeToken,
 } from "./scope_token.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
-import { isPrivateIp } from "./private_ip.ts";
+
+// deno-fmt-ignore
+const PRIVATE_CIDRS = [
+  "0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8",
+  "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.168.0.0/16",
+  "198.18.0.0/15", "224.0.0.0/4", "240.0.0.0/4",
+  "::1/128", "::/128", "fc00::/7", "fe80::/10", "ff00::/8",
+];
+
+export async function hashApiKey(apiKey: string): Promise<string> {
+  return encodeHex(
+    await crypto.subtle.digest("SHA-256", new TextEncoder().encode(apiKey)),
+  );
+}
+
+export type OwnerResult =
+  | { status: "unclaimed"; keyHash: string }
+  | { status: "owned"; keyHash: string }
+  | { status: "forbidden" };
+
+export async function verifySlugOwner(
+  apiKey: string,
+  opts: { slug: string; store: BundleStore },
+): Promise<OwnerResult> {
+  const { slug, store } = opts;
+  const keyHash = await hashApiKey(apiKey);
+  const manifest = await store.getManifest(slug);
+  if (!manifest) return { status: "unclaimed", keyHash };
+  if (manifest.credential_hashes.includes(keyHash)) return { status: "owned", keyHash };
+  return { status: "forbidden" };
+}
 
 const VALID_SLUG_REGEXP = /^[a-z0-9][a-z0-9_-]{0,62}[a-z0-9]$/;
 
@@ -59,7 +90,7 @@ export function requireInternal(
   const fly = req.headers.get("fly-client-ip");
   const addr = info?.remoteAddr;
   const ip = fly ?? (addr && "hostname" in addr ? addr.hostname : "") ?? "";
-  if (!isPrivateIp(ip)) {
+  if (!ip || !matchSubnets(ip, PRIVATE_CIDRS)) {
     throw new HTTPException(403, { message: "Forbidden" });
   }
 }

@@ -103,7 +103,7 @@ export function createTestStore(): BundleStore {
   };
 }
 
-export function createTestScopeKey(): Promise<ScopeKey> {
+export function createTestScopeKey(): ScopeKey {
   return importScopeKey("test-secret-for-tests-only");
 }
 

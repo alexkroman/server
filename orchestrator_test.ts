@@ -2,7 +2,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { stub } from "@std/testing/mock";
 import { _internals as _wsInternals } from "./transport_websocket.ts";
-import { hashApiKey } from "./auth.ts";
+import { hashApiKey } from "./middleware.ts";
 import { signScopeToken } from "./scope_token.ts";
 import {
   createTestOrchestrator,

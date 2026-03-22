@@ -1,6 +1,6 @@
 // Copyright 2025 the AAI authors. MIT license.
 import { assertEquals, assertMatch, assertNotEquals } from "@std/assert";
-import { hashApiKey } from "./auth.ts";
+import { hashApiKey } from "./middleware.ts";
 
 Deno.test("hashApiKey produces consistent hex output", async () => {
   const hash1 = await hashApiKey("test-key");

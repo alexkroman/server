@@ -11,8 +11,29 @@ import {
 } from "@aai/sdk/capnweb";
 import WebSocket from "ws";
 import type { S2sWebSocket } from "@aai/sdk/s2s";
-import { assertPublicUrl } from "./builtin_tools.ts";
+import { matchSubnets } from "@std/net/unstable-ip";
 import type { KvStore } from "./kv.ts";
+
+// deno-fmt-ignore
+const PRIVATE_CIDRS = [
+  "0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8",
+  "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.168.0.0/16",
+  "198.18.0.0/15", "224.0.0.0/4", "240.0.0.0/4",
+  "::1/128", "::/128", "fc00::/7", "fe80::/10", "ff00::/8",
+];
+
+/** SSRF guard: resolve hostname and block private/reserved IPs. */
+export async function assertPublicUrl(url: string): Promise<void> {
+  const parsed = new URL(url);
+  const hostname = parsed.hostname.replace(/^\[|\]$/g, "");
+  const { resolve } = await import("node:dns/promises");
+  const addresses = await resolve(hostname).catch(() => [hostname]);
+  for (const addr of addresses) {
+    if (addr && matchSubnets(addr, PRIVATE_CIDRS)) {
+      throw new Error(`Blocked request to private address: ${hostname}`);
+    }
+  }
+}
 import type { ServerVectorStore } from "./vector.ts";
 import type { AgentScope } from "./scope_token.ts";
 
