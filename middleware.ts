@@ -1,6 +1,5 @@
 // Copyright 2025 the AAI authors. MIT license.
 import { encodeHex } from "@std/encoding/hex";
-import { matchSubnets } from "@std/net/unstable-ip";
 import { HTTPException } from "hono/http-exception";
 import {
   type AgentScope,
@@ -8,14 +7,7 @@ import {
   verifyScopeToken,
 } from "./scope_token.ts";
 import type { BundleStore } from "./bundle_store_tigris.ts";
-
-// deno-fmt-ignore
-const PRIVATE_CIDRS = [
-  "0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8",
-  "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.168.0.0/16",
-  "198.18.0.0/15", "224.0.0.0/4", "240.0.0.0/4",
-  "::1/128", "::/128", "fc00::/7", "fe80::/10", "ff00::/8",
-];
+import { isPrivateIp } from "./_net.ts";
 
 export async function hashApiKey(apiKey: string): Promise<string> {
   return encodeHex(
@@ -92,7 +84,7 @@ export function requireInternal(
   const fly = req.headers.get("fly-client-ip");
   const addr = info?.remoteAddr;
   const ip = fly ?? (addr && "hostname" in addr ? addr.hostname : "") ?? "";
-  if (!ip || !matchSubnets(ip, PRIVATE_CIDRS)) {
+  if (!ip || !isPrivateIp(ip)) {
     throw new HTTPException(403, { message: "Forbidden" });
   }
 }

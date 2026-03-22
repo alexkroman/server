@@ -67,6 +67,7 @@ export function ensureAgent(
       scope: opts.kvCtx.scope,
       vectorStore: opts.vectorCtx?.vectorStore,
     });
+    delete slot.initializing;
     resetIdleTimer(slot);
     log.info("Agent sandbox ready", {
       slug: slot.slug,

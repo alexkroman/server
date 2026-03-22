@@ -160,7 +160,7 @@ export function createBundleStore(
 
       const manifest = {
         slug: bundle.slug,
-        env: await encryptEnv(credentialKey, {
+        env: encryptEnv(credentialKey, {
           env: bundle.env,
           slug: bundle.slug,
         }),
@@ -198,7 +198,7 @@ export function createBundleStore(
       const raw = await getRawManifest(slug);
       if (!raw) return null;
 
-      raw.env = await decryptEnv(credentialKey, {
+      raw.env = decryptEnv(credentialKey, {
         encrypted: raw.env as string,
         slug,
       });
@@ -223,7 +223,7 @@ export function createBundleStore(
     async getEnv(slug) {
       const raw = await getRawManifest(slug);
       if (!raw) return null;
-      return await decryptEnv(credentialKey, {
+      return decryptEnv(credentialKey, {
         encrypted: raw.env as string,
         slug,
       });
@@ -232,7 +232,7 @@ export function createBundleStore(
     async putEnv(slug, env) {
       const raw = await getRawManifest(slug);
       if (!raw) throw new Error(`Agent ${slug} not found`);
-      raw.env = await encryptEnv(credentialKey, { env, slug });
+      raw.env = encryptEnv(credentialKey, { env, slug });
       raw.envEncrypted = true;
       await put(
         objectKey(slug, "manifest.json"),

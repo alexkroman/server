@@ -31,8 +31,12 @@ export async function handleVector(c: Context<Env>): Promise<Response> {
             msg.filter,
           ),
         });
-      default:
-        return c.json({ error: `Unknown vector op` }, 400);
+      default: {
+        const _: never = msg;
+        return c.json({
+          error: `Unknown vector op: ${(_ as { op: string }).op}`,
+        }, 400);
+      }
     }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
