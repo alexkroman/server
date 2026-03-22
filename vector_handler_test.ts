@@ -5,6 +5,8 @@ import { HTTPException } from "hono/http-exception";
 import type { Env } from "./context.ts";
 import { handleVector } from "./vector_handler.ts";
 import { createTestVectorStore } from "./_test_utils.ts";
+import { zValidator } from "./_validation.ts";
+import { VectorHttpRequestSchema } from "./_schemas.ts";
 
 // --- helpers ---
 
@@ -26,7 +28,7 @@ function createTestApp(
     }
     return c.json({ error: "unexpected" }, 500);
   });
-  app.post("/vector", handleVector);
+  app.post("/vector", zValidator("json", VectorHttpRequestSchema), handleVector);
   return app;
 }
 

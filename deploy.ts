@@ -1,22 +1,15 @@
 // Copyright 2025 the AAI authors. MIT license.
 import * as log from "@std/log";
-import { HTTPException } from "hono/http-exception";
 import type { Context } from "hono";
 import type { Env } from "./context.ts";
-import { type DeployBody, DeployBodySchema, EnvSchema } from "./_schemas.ts";
+import { EnvSchema } from "./_schemas.ts";
 import { type AgentSlot, terminateSandbox } from "./worker_pool.ts";
 
 export async function handleDeploy(c: Context<Env>): Promise<Response> {
   const state = c.get("state");
   const slug = c.get("slug");
   const keyHash = c.get("keyHash");
-
-  let body: DeployBody;
-  try {
-    body = DeployBodySchema.parse(await c.req.json());
-  } catch {
-    throw new HTTPException(400, { message: "Invalid deploy body" });
-  }
+  const body = c.req.valid("json");
 
   const storedEnv = await state.store.getEnv(slug) ?? {};
   const env = body.env ? { ...storedEnv, ...body.env } : storedEnv;

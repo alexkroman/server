@@ -3,7 +3,6 @@ import * as log from "@std/log";
 import { HTTPException } from "hono/http-exception";
 import type { Context } from "hono";
 import type { AppState, Env } from "./context.ts";
-import { SecretUpdatesSchema } from "./_schemas.ts";
 import { terminateSandbox } from "./worker_pool.ts";
 
 function restartSandbox(state: AppState, slug: string, reason: string): void {
@@ -29,14 +28,7 @@ export async function handleSecretList(c: Context<Env>): Promise<Response> {
 export async function handleSecretSet(c: Context<Env>): Promise<Response> {
   const state = c.get("state");
   const slug = c.get("slug");
-
-  const parsed = SecretUpdatesSchema.safeParse(await c.req.json());
-  if (!parsed.success) {
-    throw new HTTPException(400, {
-      message: "Body must be a JSON object of string key-value pairs",
-    });
-  }
-  const updates = parsed.data;
+  const updates = c.req.valid("json") as Record<string, string>;
 
   const existing = await state.store.getEnv(slug) ?? {};
   const merged = { ...existing, ...updates };

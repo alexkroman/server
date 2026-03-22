@@ -1,20 +1,12 @@
 // Copyright 2025 the AAI authors. MIT license.
 import * as log from "@std/log";
-import { HTTPException } from "hono/http-exception";
 import type { Context } from "hono";
 import type { Env } from "./context.ts";
-import { type KvHttpRequest, KvHttpRequestSchema } from "./_schemas.ts";
 
 export async function handleKv(c: Context<Env>): Promise<Response> {
   const { kvStore } = c.get("state");
   const scope = c.get("scope");
-
-  let msg: KvHttpRequest;
-  try {
-    msg = KvHttpRequestSchema.parse(await c.req.json());
-  } catch {
-    throw new HTTPException(400, { message: "Invalid request" });
-  }
+  const msg = c.req.valid("json");
 
   try {
     switch (msg.op) {

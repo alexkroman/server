@@ -23,6 +23,13 @@ import { handleVector } from "./vector_handler.ts";
 import type { KvStore } from "./kv.ts";
 import type { ServerVectorStore } from "./vector.ts";
 import type { ScopeKey } from "./scope_token.ts";
+import { zValidator } from "./_validation.ts";
+import {
+  DeployBodySchema,
+  KvHttpRequestSchema,
+  SecretUpdatesSchema,
+  VectorHttpRequestSchema,
+} from "./_schemas.ts";
 import {
   httpRequestDurationSeconds,
   httpRequestsTotal,
@@ -136,12 +143,12 @@ export function createOrchestrator(opts: {
     return c.redirect(url.toString(), 301);
   });
 
-  app.post("/:slug/deploy", slugMw, ownerMw, handleDeploy);
+  app.post("/:slug/deploy", slugMw, ownerMw, zValidator("json", DeployBodySchema), handleDeploy);
   app.get("/:slug/secret", slugMw, ownerMw, handleSecretList);
-  app.put("/:slug/secret", slugMw, ownerMw, handleSecretSet);
+  app.put("/:slug/secret", slugMw, ownerMw, zValidator("json", SecretUpdatesSchema), handleSecretSet);
   app.delete("/:slug/secret/:key", slugMw, ownerMw, handleSecretDelete);
-  app.post("/:slug/kv", internalMw, slugMw, scopeTokenMw, handleKv);
-  app.post("/:slug/vector", slugMw, ownerMw, handleVector);
+  app.post("/:slug/kv", internalMw, slugMw, scopeTokenMw, zValidator("json", KvHttpRequestSchema), handleKv);
+  app.post("/:slug/vector", slugMw, ownerMw, zValidator("json", VectorHttpRequestSchema), handleVector);
 
   app.get("/:slug/metrics", slugMw, ownerMw, (c) => {
     return c.text(serializeForAgent(c.get("slug")), 200, {

@@ -9,6 +9,8 @@ import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import type { Env } from "./context.ts";
 import { handleKv } from "./kv_handler.ts";
+import { zValidator } from "./_validation.ts";
+import { KvHttpRequestSchema } from "./_schemas.ts";
 
 // --- helpers ---
 
@@ -56,7 +58,7 @@ function createTestApp(kvStore: ReturnType<typeof createMockKvStore>) {
     }
     return c.json({ error: "unexpected" }, 500);
   });
-  app.post("/kv", handleKv);
+  app.post("/kv", zValidator("json", KvHttpRequestSchema), handleKv);
   return app;
 }
 

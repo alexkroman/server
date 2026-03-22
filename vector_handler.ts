@@ -3,10 +3,6 @@ import * as log from "@std/log";
 import { HTTPException } from "hono/http-exception";
 import type { Context } from "hono";
 import type { Env } from "./context.ts";
-import {
-  type VectorHttpRequest,
-  VectorHttpRequestSchema,
-} from "./_schemas.ts";
 
 export async function handleVector(c: Context<Env>): Promise<Response> {
   const { vectorStore } = c.get("state");
@@ -18,12 +14,7 @@ export async function handleVector(c: Context<Env>): Promise<Response> {
     });
   }
 
-  let msg: VectorHttpRequest;
-  try {
-    msg = VectorHttpRequestSchema.parse(await c.req.json());
-  } catch {
-    throw new HTTPException(400, { message: "Invalid request" });
-  }
+  const msg = c.req.valid("json");
 
   try {
     switch (msg.op) {
