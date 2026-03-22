@@ -54,13 +54,20 @@ async function spawnAgent(
   });
 }
 
+/** Terminate a running sandbox so it restarts on the next session. */
+export function terminateSandbox(slot: AgentSlot): void {
+  if (!slot.sandbox) return;
+  slot.sandbox.terminate();
+  delete slot.sandbox;
+  delete slot.initializing;
+}
+
 function resetIdleTimer(slot: AgentSlot): void {
   if (slot.idleTimer) clearTimeout(slot.idleTimer);
   const id = setTimeout(() => {
     if (!slot.sandbox) return;
     log.info("Evicting idle sandbox", { slug: slot.slug });
-    slot.sandbox.terminate();
-    delete slot.sandbox;
+    terminateSandbox(slot);
     delete slot.idleTimer;
   }, IDLE_MS);
   Deno.unrefTimer(id);

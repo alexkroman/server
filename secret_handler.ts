@@ -4,14 +4,13 @@ import { HTTPException } from "hono/http-exception";
 import type { Context } from "hono";
 import type { AppState, Env } from "./context.ts";
 import { SecretUpdatesSchema } from "./_schemas.ts";
+import { terminateSandbox } from "./worker_pool.ts";
 
 function restartSandbox(state: AppState, slug: string, reason: string): void {
   const slot = state.slots.get(slug);
-  if (slot?.sandbox) {
+  if (slot) {
     log.info(`Restarting sandbox for ${reason}`, { slug });
-    slot.sandbox.terminate();
-    delete slot.sandbox;
-    delete slot.initializing;
+    terminateSandbox(slot);
   }
 }
 

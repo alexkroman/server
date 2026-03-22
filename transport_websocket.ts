@@ -69,8 +69,8 @@ export async function handleClientAsset(c: Context<Env>): Promise<Response> {
   const content = await state.store.getClientFile(slug, `assets/${assetPath}`);
   if (!content) throw new HTTPException(404, { message: "Asset not found" });
 
-  const ext = assetPath.split(".").pop()!;
-  const contentType = typeByExtension(ext)!;
+  const ext = assetPath.split(".").pop() ?? "";
+  const contentType = typeByExtension(ext) ?? "application/octet-stream";
 
   return c.body(content, 200, {
     "Content-Type": contentType,

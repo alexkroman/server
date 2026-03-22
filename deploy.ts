@@ -4,7 +4,7 @@ import { HTTPException } from "hono/http-exception";
 import type { Context } from "hono";
 import type { Env } from "./context.ts";
 import { type DeployBody, DeployBodySchema, EnvSchema } from "./_schemas.ts";
-import type { AgentSlot } from "./worker_pool.ts";
+import { type AgentSlot, terminateSandbox } from "./worker_pool.ts";
 
 /**
  * Handler for the agent deploy endpoint (`POST /:slug/deploy`).
@@ -38,11 +38,9 @@ export async function handleDeploy(c: Context<Env>): Promise<Response> {
   }
 
   const existing = state.slots.get(slug);
-  if (existing?.sandbox) {
+  if (existing) {
     log.info("Replacing existing deploy", { slug });
-    existing.sandbox.terminate();
-    delete existing.sandbox;
-    delete existing.initializing;
+    terminateSandbox(existing);
   }
 
   await state.store.putAgent({
