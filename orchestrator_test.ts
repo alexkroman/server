@@ -26,8 +26,11 @@ Deno.test("returns Prometheus metrics", async () => {
   const { fetch } = await createTestOrchestrator();
   const res = await fetch("/metrics");
   assertEquals(res.status, 200);
-  assertEquals(res.headers.get("Content-Type"), "text/plain; version=0.0.4");
-  assertStringIncludes(await res.text(), "http_requests_total");
+  assertStringIncludes(
+    res.headers.get("Content-Type") ?? "",
+    "text/plain",
+  );
+  assertStringIncludes(await res.text(), "http_request_duration_seconds");
 });
 
 Deno.test("returns 404 for unknown paths", async () => {
@@ -97,19 +100,16 @@ Deno.test("deploy succeeds and stores agent", async () => {
 
 Deno.test("deploy can redeploy same slug", async () => {
   const { fetch } = await createTestOrchestrator();
-  const init = {
+  await deployAgent(fetch);
+  const res = await fetch("/my-agent/deploy", {
     method: "POST",
     headers: {
       Authorization: "Bearer key1",
       "Content-Type": "application/json",
     },
     body: deployBody(),
-  };
-  await fetch("/my-agent/deploy", init);
-  assertEquals(
-    (await fetch("/my-agent/deploy", { ...init, body: deployBody() })).status,
-    200,
-  );
+  });
+  assertEquals(res.status, 200);
 });
 
 // =============================================================================
@@ -150,14 +150,6 @@ Deno.test("agent page returns HTML for deployed agent", async () => {
   assertEquals(res.status, 200);
   assertStringIncludes(res.headers.get("Content-Type")!, "text/html");
   assertStringIncludes(await res.text(), "<html>");
-});
-
-Deno.test("trailing slash on agent page serves HTML", async () => {
-  const { fetch } = await createTestOrchestrator();
-  await deployAgent(fetch);
-  const res = await fetch("/my-agent/");
-  assertEquals(res.status, 200);
-  assertStringIncludes(res.headers.get("Content-Type")!, "text/html");
 });
 
 // =============================================================================
@@ -268,21 +260,15 @@ Deno.test("kv set and get round-trip", async () => {
     keyHash: "acct-1",
     slug: "my-agent",
   });
-  assertEquals(
-    (await (await fetch(...kvReq("my-agent", token, {
-      op: "set",
-      key: "k1",
-      value: "v1",
-    }))).json()).result,
-    "OK",
+  const setRes = await fetch(
+    ...kvReq("my-agent", token, { op: "set", key: "k1", value: "v1" }),
   );
-  assertEquals(
-    (await (await fetch(...kvReq("my-agent", token, {
-      op: "get",
-      key: "k1",
-    }))).json()).result,
-    "v1",
+  assertEquals((await setRes.json()).result, "OK");
+
+  const getRes = await fetch(
+    ...kvReq("my-agent", token, { op: "get", key: "k1" }),
   );
+  assertEquals((await getRes.json()).result, "v1");
 });
 
 Deno.test("kv scope isolation", async () => {

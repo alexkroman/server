@@ -1,226 +1,171 @@
 // Copyright 2025 the AAI authors. MIT license.
 /**
- * Lightweight Prometheus metrics. No external dependencies.
+ * Prometheus metrics backed by prom-client.
  *
  * Platform view:  GET /metrics          → serialize()
  * Customer view:  GET /:ns/:slug/metrics → serializeForAgent("ns/slug")
  */
-
-const DEFAULT_BUCKETS = [0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30];
-
-// OpenTelemetry recommended buckets for HTTP request duration
-const HTTP_BUCKETS = [
-  0.005,
-  0.01,
-  0.025,
-  0.05,
-  0.075,
-  0.1,
-  0.25,
-  0.5,
-  0.75,
-  1,
-  2.5,
-  5,
-  7.5,
-  10,
-];
+import client from "prom-client";
 
 type Labels = Record<string, string>;
 
-function toKey(names: string[], labels?: Labels): string {
-  if (!labels || names.length === 0) return "";
-  return names.map((n) => `${n}="${labels[n] ?? ""}"`).join(",");
+/** Shared registry — passed to @hono/prometheus and used for serialization. */
+export const registry = new client.Registry();
+
+/** Serialize all metrics on the shared registry. */
+export async function serialize(): Promise<string> {
+  return registry.metrics();
 }
 
-/** Filter + format a single entry. Returns null if filtered out. */
-function resolve(
-  names: string[],
-  key: string,
-  agent?: string,
-): { suffix: string; extra: string } | null {
-  if (agent) {
-    if (!names.includes("agent")) return null;
-    // Parse the label we need from the key
-    const p = `agent="`;
-    const i = key.indexOf(p);
-    if (
-      i === -1 ||
-      key.slice(i + p.length, key.indexOf('"', i + p.length)) !== agent
-    ) return null;
-    // Strip the agent label, keep the rest
-    const stripped = names.filter((n) => n !== "agent")
-      .map((n) => {
-        const np = `${n}="`;
-        const ni = key.indexOf(np);
-        if (ni === -1) return `${n}=""`;
-        const ns = ni + np.length;
-        return `${n}="${key.slice(ns, key.indexOf('"', ns))}"`;
-      }).join(",");
-    return {
-      suffix: stripped ? `{${stripped}}` : "",
-      extra: stripped ? `,${stripped}` : "",
-    };
-  }
-  return {
-    suffix: key ? `{${key}}` : "",
-    extra: key ? `,${key}` : "",
-  };
+/** Serialize metrics filtered to a specific agent, stripping the agent label. */
+export async function serializeForAgent(agent: string): Promise<string> {
+  const metrics = await registry.getMetricsAsJSON();
+  return metrics.map((m) => formatForAgent(m, agent)).join("\n\n") + "\n";
 }
 
-/** Serialize a simple metric (counter or gauge). */
-function serializeSimple(
-  name: string,
-  type: string,
-  help: string,
-  labelNames: string[],
-  values: Map<string, number>,
-  agent?: string,
+// ---------------------------------------------------------------------------
+// Per-agent filtering
+// ---------------------------------------------------------------------------
+
+function leString(val: unknown): string {
+  if (val === Infinity || val === "Infinity") return "+Inf";
+  return String(val);
+}
+
+function formatLabels(
+  labels: Record<string, unknown>,
+  skip?: string,
 ): string {
-  const lines = [`# HELP ${name} ${help}`, `# TYPE ${name} ${type}`];
-  for (const [key, val] of values) {
-    const r = resolve(labelNames, key, agent);
-    if (r) lines.push(`${name}${r.suffix} ${val}`);
+  const parts: string[] = [];
+  for (const [k, v] of Object.entries(labels)) {
+    if (k === skip) continue;
+    parts.push(`${k}="${k === "le" ? leString(v) : String(v)}"`);
+  }
+  return parts.length ? `{${parts.join(",")}}` : "";
+}
+
+function formatForAgent(
+  metric: {
+    name: string;
+    help: string;
+    type: string | client.MetricType;
+    values: {
+      value: number;
+      labels: Record<string, string | number | undefined>;
+      metricName?: string;
+    }[];
+  },
+  agent: string,
+): string {
+  const lines = [
+    `# HELP ${metric.name} ${metric.help}`,
+    `# TYPE ${metric.name} ${metric.type}`,
+  ];
+  if (!metric.values.some((v) => "agent" in v.labels)) {
+    return lines.join("\n");
+  }
+
+  for (const v of metric.values) {
+    if (v.labels.agent !== agent) continue;
+    const suffix = formatLabels(v.labels, "agent");
+    lines.push(`${v.metricName ?? metric.name}${suffix} ${v.value}`);
   }
   return lines.join("\n");
 }
 
-type Counter = {
+// ---------------------------------------------------------------------------
+// Factory helpers exposed for unit tests
+// ---------------------------------------------------------------------------
+
+type CounterLike = {
   inc(labels?: Labels, n?: number): void;
-  serialize(agent?: string): string;
+  serialize(agent?: string): Promise<string>;
 };
 
-type Gauge = {
+type GaugeLike = {
   inc(labels?: Labels): void;
   dec(labels?: Labels): void;
-  serialize(agent?: string): string;
+  serialize(agent?: string): Promise<string>;
 };
 
-type Histogram = {
+type HistogramLike = {
   observe(value: number, labels?: Labels): void;
-  serialize(agent?: string): string;
+  serialize(agent?: string): Promise<string>;
 };
+
+const DEFAULT_BUCKETS = [0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30];
+
+async function serializeSingle(
+  reg: client.Registry,
+  name: string,
+  agent?: string,
+): Promise<string> {
+  if (!agent) return reg.getSingleMetricAsString(name);
+  const json = await reg.getMetricsAsJSON();
+  const m = json.find((x) => x.name === name);
+  return m ? formatForAgent(m, agent) : "";
+}
 
 function createCounter(
   name: string,
   opts: { help: string; labelNames?: string[] },
-): Counter {
-  const { help, labelNames = [] } = opts;
-  const values = new Map<string, number>();
-  if (labelNames.length === 0) values.set("", 0);
+): CounterLike {
+  const reg = new client.Registry();
+  const counter = new client.Counter({
+    name,
+    help: opts.help,
+    labelNames: opts.labelNames ?? [],
+    registers: [reg],
+  });
   return {
     inc(labels?: Labels, n = 1) {
-      const key = toKey(labelNames, labels);
-      values.set(key, (values.get(key) ?? 0) + n);
+      counter.inc(labels ?? {}, n);
     },
-    serialize(agent?: string) {
-      return serializeSimple(name, "counter", help, labelNames, values, agent);
-    },
+    serialize: (agent?: string) => serializeSingle(reg, name, agent),
   };
 }
 
 function createGauge(
   name: string,
   opts: { help: string; labelNames?: string[] },
-): Gauge {
-  const { help, labelNames = [] } = opts;
-  const values = new Map<string, number>();
-  if (labelNames.length === 0) values.set("", 0);
+): GaugeLike {
+  const reg = new client.Registry();
+  const gauge = new client.Gauge({
+    name,
+    help: opts.help,
+    labelNames: opts.labelNames ?? [],
+    registers: [reg],
+  });
   return {
     inc(labels?: Labels) {
-      const key = toKey(labelNames, labels);
-      values.set(key, (values.get(key) ?? 0) + 1);
+      gauge.inc(labels ?? {});
     },
     dec(labels?: Labels) {
-      const key = toKey(labelNames, labels);
-      values.set(key, (values.get(key) ?? 0) - 1);
+      gauge.dec(labels ?? {});
     },
-    serialize(agent?: string) {
-      return serializeSimple(name, "gauge", help, labelNames, values, agent);
-    },
+    serialize: (agent?: string) => serializeSingle(reg, name, agent),
   };
 }
-
-type HistogramEntry = { counts: number[]; sum: number; count: number };
 
 function createHistogram(
   name: string,
   opts: { help: string; buckets?: number[]; labelNames?: string[] },
-): Histogram {
-  const { help, buckets = DEFAULT_BUCKETS, labelNames = [] } = opts;
-  const entries = new Map<string, HistogramEntry>();
-
-  function getEntry(key: string): HistogramEntry {
-    let e = entries.get(key);
-    if (!e) {
-      e = { counts: new Array(buckets.length).fill(0), sum: 0, count: 0 };
-      entries.set(key, e);
-    }
-    return e;
-  }
-
-  if (labelNames.length === 0) getEntry("");
-
+): HistogramLike {
+  const reg = new client.Registry();
+  const histogram = new client.Histogram({
+    name,
+    help: opts.help,
+    buckets: opts.buckets ?? DEFAULT_BUCKETS,
+    labelNames: opts.labelNames ?? [],
+    registers: [reg],
+  });
   return {
     observe(value: number, labels?: Labels) {
-      const e = getEntry(toKey(labelNames, labels));
-      e.sum += value;
-      e.count++;
-      for (let i = 0; i < buckets.length; i++) {
-        if (value <= buckets[i]!) e.counts[i] = (e.counts[i] ?? 0) + 1;
-      }
+      histogram.observe(labels ?? {}, value);
     },
-
-    serialize(agent?: string) {
-      const lines = [`# HELP ${name} ${help}`, `# TYPE ${name} histogram`];
-      for (const [key, e] of entries) {
-        const r = resolve(labelNames, key, agent);
-        if (!r) continue;
-        for (let i = 0; i < buckets.length; i++) {
-          lines.push(
-            `${name}_bucket{le="${buckets[i]}"${r.extra}} ${e.counts[i]}`,
-          );
-        }
-        lines.push(`${name}_bucket{le="+Inf"${r.extra}} ${e.count}`);
-        lines.push(`${name}_sum${r.suffix} ${e.sum}`);
-        lines.push(`${name}_count${r.suffix} ${e.count}`);
-      }
-      return lines.join("\n");
-    },
+    serialize: (agent?: string) => serializeSingle(reg, name, agent),
   };
 }
 
 /** @internal Exposed for unit tests only. */
 export const _internals = { createCounter, createGauge, createHistogram };
-
-export const httpRequestsTotal = createCounter(
-  "http_requests_total",
-  {
-    help: "Total number of HTTP requests",
-    labelNames: ["method", "route", "status", "ok"],
-  },
-);
-
-export const httpRequestDurationSeconds = createHistogram(
-  "http_request_duration_seconds",
-  {
-    help: "Duration of HTTP requests in seconds",
-    buckets: HTTP_BUCKETS,
-    labelNames: ["method", "route", "status", "ok"],
-  },
-);
-
-type Metric = { serialize(agent?: string): string };
-
-const metrics: Metric[] = [
-  httpRequestsTotal,
-  httpRequestDurationSeconds,
-];
-
-export function serialize(): string {
-  return metrics.map((m) => m.serialize()).join("\n\n") + "\n";
-}
-
-export function serializeForAgent(agent: string): string {
-  return metrics.map((m) => m.serialize(agent)).join("\n\n") + "\n";
-}
