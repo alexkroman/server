@@ -16,6 +16,7 @@ import {
 } from "@aai/sdk/host";
 import WebSocket from "ws";
 import { assertPublicUrl } from "./_net.ts";
+import type { KvEntry } from "@aai/sdk/kv";
 import type { KvStore } from "./kv.ts";
 import type { ServerVectorStore } from "./vector.ts";
 import type { AgentScope } from "./scope_token.ts";
@@ -42,7 +43,7 @@ export type Sandbox = {
 
 // ─── Scoped store adapters ──────────────────────────────────────────────────
 
-function scopedKvOps(kvStore: KvStore, scope: AgentScope) {
+function scopedKv(kvStore: KvStore, scope: AgentScope) {
   return {
     async get(key: string) {
       const raw = await kvStore.get(scope, key);
@@ -53,18 +54,20 @@ function scopedKvOps(kvStore: KvStore, scope: AgentScope) {
         return raw;
       }
     },
-    async set(key: string, value: unknown, expireIn?: number) {
-      const ttl = expireIn ? Math.ceil(expireIn / 1000) : undefined;
+    async set(key: string, value: unknown, options?: { expireIn?: number }) {
+      const ttl = options?.expireIn
+        ? Math.ceil(options.expireIn / 1000)
+        : undefined;
       await kvStore.set(scope, key, JSON.stringify(value), ttl);
     },
-    async del(key: string) {
+    async delete(key: string) {
       await kvStore.del(scope, key);
     },
-    async list(prefix: string, limit?: number, reverse?: boolean) {
-      return await kvStore.list(scope, prefix, {
-        ...(limit !== undefined ? { limit } : {}),
-        ...(reverse !== undefined ? { reverse } : {}),
-      });
+    async list<T = unknown>(
+      prefix: string,
+      options?: { limit?: number; reverse?: boolean },
+    ): Promise<KvEntry<T>[]> {
+      return await kvStore.list(scope, prefix, options ?? {}) as KvEntry<T>[];
     },
     async keys(pattern?: string) {
       return await kvStore.keys(scope, pattern);
@@ -72,20 +75,21 @@ function scopedKvOps(kvStore: KvStore, scope: AgentScope) {
   };
 }
 
-function scopedVectorOps(vectorStore: ServerVectorStore, scope: AgentScope) {
+function scopedVector(vectorStore: ServerVectorStore, scope: AgentScope) {
   return {
-    async upsert(
-      id: string,
-      data: string,
-      metadata?: Record<string, unknown>,
-    ) {
+    async upsert(id: string, data: string, metadata?: Record<string, unknown>) {
       await vectorStore.upsert(scope, id, data, metadata);
     },
-    async query(text: string, topK?: number, filter?: string) {
-      return await vectorStore.query(scope, text, topK, filter);
+    async query(text: string, options?: { topK?: number; filter?: string }) {
+      return await vectorStore.query(
+        scope,
+        text,
+        options?.topK,
+        options?.filter,
+      );
     },
-    async remove(ids: string[]) {
-      await vectorStore.remove(scope, ids);
+    async remove(ids: string | string[]) {
+      await vectorStore.remove(scope, Array.isArray(ids) ? ids : [ids]);
     },
   };
 }
@@ -108,8 +112,8 @@ export async function createSandbox(opts: SandboxOptions): Promise<Sandbox> {
     worker as unknown as WorkerPort,
     {
       env,
-      kv: scopedKvOps(kvStore, scope),
-      vector: vectorStore ? scopedVectorOps(vectorStore, scope) : undefined,
+      kv: scopedKv(kvStore, scope),
+      vector: vectorStore ? scopedVector(vectorStore, scope) : undefined,
       async fetch(url, method, headers, body) {
         await assertPublicUrl(url);
         return defaultHostFetch(url, method, headers, body);
