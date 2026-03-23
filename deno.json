@@ -53,14 +53,13 @@
     "@noble/hashes": "npm:@noble/hashes@^1",
     "ws": "npm:ws@^8",
     "capnweb": "npm:capnweb@^0.6.1",
-    "markdownlint-cli": "npm:markdownlint-cli@^0.44.0",
     "prom-client": "npm:prom-client@^15",
     "@hono/prometheus": "npm:@hono/prometheus@^1"
   },
   "tasks": {
     "serve": "deno run --allow-all --unstable-worker-options main.ts",
     "test": "deno test --allow-net --allow-read --allow-write --allow-env --allow-run --allow-sys --unstable-worker-options .",
-    "check": "deno check *.ts && deno lint && deno fmt --check && deno task test",
+    "check": "deno check *.ts && deno lint && deno fmt --check && deno task test && RUST_MIN_STACK=16777216 deno compile --allow-all --unstable-worker-options --output /tmp/aai-check main.ts && rm -f /tmp/aai-check",
     "setup": "git config core.hooksPath .githooks"
   },
   "nodeModulesDir": "auto",

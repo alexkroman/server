@@ -7,6 +7,7 @@ import {
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
+import * as log from "@std/log";
 import type { AgentMetadata } from "./_schemas.ts";
 import { AgentMetadataSchema } from "./_schemas.ts";
 import { type CredentialKey, decryptEnv, encryptEnv } from "./credentials.ts";
@@ -101,10 +102,16 @@ export function createBundleStore(
       }
       return data;
     } catch (err: unknown) {
-      if (err instanceof Error && err.name === "NotModified") {
+      const status = (err as { $metadata?: { httpStatusCode?: number } })
+        .$metadata
+        ?.httpStatusCode;
+      if (
+        status === 304 ||
+        (err instanceof Error && err.name === "NotModified")
+      ) {
         return cached!.data;
       }
-      if (err instanceof NoSuchKey) {
+      if (err instanceof NoSuchKey || status === 404) {
         return null;
       }
       throw err;
@@ -147,7 +154,15 @@ export function createBundleStore(
 
   const store: BundleStore = {
     async putAgent(bundle) {
-      await deleteAgent(bundle.slug);
+      try {
+        await deleteAgent(bundle.slug);
+      } catch (err) {
+        log.warn(
+          `Failed to delete old agent files for ${bundle.slug}, proceeding with overwrite: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
 
       const manifest = {
         slug: bundle.slug,
