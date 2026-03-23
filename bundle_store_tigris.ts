@@ -3,6 +3,7 @@ import {
   DeleteObjectsCommand,
   GetObjectCommand,
   ListObjectsV2Command,
+  NoSuchKey,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
@@ -56,18 +57,6 @@ export function createS3Client(): S3Client {
   });
 }
 
-function isS3Error(err: unknown, codeOrStatus: string): boolean {
-  if (typeof err !== "object" || err === null) return false;
-  const e = err as Record<string, unknown>;
-  return (
-    e.name === codeOrStatus ||
-    e.Code === codeOrStatus ||
-    String(
-        e.$metadata && (e.$metadata as Record<string, unknown>).httpStatusCode,
-      ) === codeOrStatus
-  );
-}
-
 export function createBundleStore(
   s3: S3Client,
   opts: { bucket: string; credentialKey: CredentialKey },
@@ -112,10 +101,10 @@ export function createBundleStore(
       }
       return data;
     } catch (err: unknown) {
-      if (isS3Error(err, "304") || isS3Error(err, "NotModified")) {
+      if (err instanceof Error && err.name === "NotModified") {
         return cached!.data;
       }
-      if (isS3Error(err, "NoSuchKey") || isS3Error(err, "404")) {
+      if (err instanceof NoSuchKey) {
         return null;
       }
       throw err;

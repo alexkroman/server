@@ -25,12 +25,8 @@ import { handleVector } from "./vector_handler.ts";
 import type { KvStore } from "./kv.ts";
 import type { ServerVectorStore } from "./vector.ts";
 import type { ScopeKey } from "./scope_token.ts";
-import {
-  httpRequestDurationSeconds,
-  httpRequestsTotal,
-  serialize as serializeMetrics,
-  serializeForAgent,
-} from "./metrics.ts";
+import { registry, serializeForAgent } from "./metrics.ts";
+import { prometheus } from "@hono/prometheus";
 import {
   requireInternal,
   requireOwner,
@@ -38,6 +34,8 @@ import {
   requireUpgrade,
   validateSlug,
 } from "./middleware.ts";
+
+const { printMetrics, registerMetrics } = prometheus({ registry });
 
 export function createOrchestrator(opts: {
   store: BundleStore;
@@ -86,24 +84,7 @@ export function createOrchestrator(opts: {
       crossOriginEmbedderPolicy: "credentialless",
     }),
   );
-  app.use("*", async (c, next) => {
-    const start = performance.now();
-    try {
-      await next();
-    } finally {
-      const labels = {
-        method: c.req.method,
-        route: c.req.routePath,
-        status: String(c.res.status),
-        ok: String(c.res.ok),
-      };
-      httpRequestDurationSeconds.observe(
-        (performance.now() - start) / 1000,
-        labels,
-      );
-      httpRequestsTotal.inc(labels);
-    }
-  });
+  app.use("*", registerMetrics);
 
   app.onError((err, c) => {
     if (err instanceof HTTPException) {
@@ -121,11 +102,7 @@ export function createOrchestrator(opts: {
 
   app.get("/health", (c) => c.json({ status: "ok" }));
 
-  app.get("/metrics", internalMw, (c) => {
-    return c.text(serializeMetrics(), 200, {
-      "Content-Type": "text/plain; version=0.0.4",
-    });
-  });
+  app.get("/metrics", internalMw, printMetrics);
 
   app.get("/:slug{[a-z0-9][a-z0-9_-]*[a-z0-9]}", (c) => {
     const url = new URL(c.req.url);
@@ -140,8 +117,8 @@ export function createOrchestrator(opts: {
   app.post("/:slug/kv", internalMw, slugMw, scopeTokenMw, handleKv);
   app.post("/:slug/vector", slugMw, ownerMw, handleVector);
 
-  app.get("/:slug/metrics", slugMw, ownerMw, (c) => {
-    return c.text(serializeForAgent(c.get("slug")), 200, {
+  app.get("/:slug/metrics", slugMw, ownerMw, async (c) => {
+    return c.text(await serializeForAgent(c.get("slug")), 200, {
       "Content-Type": "text/plain; version=0.0.4",
     });
   });

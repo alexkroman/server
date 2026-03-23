@@ -28,9 +28,14 @@ export async function handleDeploy(c: Context<Env>): Promise<Response> {
   }
 
   const existing = c.env.slots.get(slug);
-  if (existing?.sandbox) {
+  if (existing?.sandbox || existing?.initializing) {
     log.info("Replacing existing deploy", { slug });
-    existing.sandbox.terminate();
+    if (existing.sandbox) {
+      existing.sandbox.terminate();
+    } else if (existing.initializing) {
+      // Sandbox is still spinning up — wait for it then terminate
+      existing.initializing.then((sb) => sb.terminate()).catch(() => {});
+    }
     delete existing.sandbox;
     delete existing.initializing;
   }

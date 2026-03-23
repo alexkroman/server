@@ -8,6 +8,21 @@ import { sortAndPaginate } from "@aai/sdk/kv";
 import { type AgentMetadata, AgentMetadataSchema } from "./_schemas.ts";
 import { createOrchestrator } from "./orchestrator.ts";
 
+function scopedKey(
+  ns: string,
+  scope: { keyHash: string; slug: string },
+  key: string,
+): string {
+  return `${ns}:${scope.keyHash}:${scope.slug}:${key}`;
+}
+
+function scopePrefix(
+  ns: string,
+  scope: { keyHash: string; slug: string },
+): string {
+  return `${ns}:${scope.keyHash}:${scope.slug}:`;
+}
+
 export const DUMMY_INFO: Deno.ServeHandlerInfo = {
   remoteAddr: { transport: "tcp" as const, hostname: "127.0.0.1", port: 0 },
   completed: Promise.resolve(),
@@ -30,6 +45,11 @@ export function createTestStore(): BundleStore {
     }
   }
 
+  function readManifest(slug: string): Record<string, unknown> | null {
+    const data = objects.get(objectKey(slug, "manifest.json"));
+    return data !== undefined ? JSON.parse(data) : null;
+  }
+
   return {
     putAgent(bundle) {
       deleteByPrefix(`agents/${bundle.slug}/`);
@@ -50,11 +70,12 @@ export function createTestStore(): BundleStore {
     },
 
     getManifest(slug) {
-      const data = objects.get(objectKey(slug, "manifest.json"));
-      if (data === undefined) return Promise.resolve(null);
-      const parsed = AgentMetadataSchema.safeParse(JSON.parse(data));
-      if (!parsed.success) return Promise.resolve(null);
-      return Promise.resolve(parsed.data as AgentMetadata);
+      const raw = readManifest(slug);
+      if (!raw) return Promise.resolve(null);
+      const parsed = AgentMetadataSchema.safeParse(raw);
+      return Promise.resolve(
+        parsed.success ? (parsed.data as AgentMetadata) : null,
+      );
     },
 
     getWorkerCode(slug) {
@@ -75,23 +96,19 @@ export function createTestStore(): BundleStore {
     },
 
     getEnv(slug) {
-      const data = objects.get(objectKey(slug, "manifest.json"));
-      if (data === undefined) return Promise.resolve(null);
-      const manifest = JSON.parse(data);
-      return Promise.resolve(manifest.env ?? null);
+      const raw = readManifest(slug);
+      return Promise.resolve(
+        (raw?.env as Record<string, string>) ?? null,
+      );
     },
 
     putEnv(slug, env) {
-      const data = objects.get(objectKey(slug, "manifest.json"));
-      if (data === undefined) {
+      const raw = readManifest(slug);
+      if (!raw) {
         return Promise.reject(new Error(`Agent ${slug} not found`));
       }
-      const manifest = JSON.parse(data);
-      manifest.env = env;
-      objects.set(
-        objectKey(slug, "manifest.json"),
-        JSON.stringify(manifest),
-      );
+      raw.env = env;
+      objects.set(objectKey(slug, "manifest.json"), JSON.stringify(raw));
       return Promise.resolve();
     },
   };
@@ -169,34 +186,22 @@ export async function deployAgent(
 export function createTestKvStore(): KvStore {
   const store = new Map<string, string>();
 
-  function scopedKey(
-    scope: { keyHash: string; slug: string },
-    key: string,
-  ): string {
-    return `kv:${scope.keyHash}:${scope.slug}:${key}`;
-  }
-
-  function scopePrefix(scope: {
-    keyHash: string;
-    slug: string;
-  }): string {
-    return `kv:${scope.keyHash}:${scope.slug}:`;
-  }
-
   return {
     get(scope, key) {
-      return Promise.resolve(store.get(scopedKey(scope, key)) ?? null);
+      return Promise.resolve(
+        store.get(scopedKey("kv", scope, key)) ?? null,
+      );
     },
     set(scope, key, value) {
-      store.set(scopedKey(scope, key), value);
+      store.set(scopedKey("kv", scope, key), value);
       return Promise.resolve();
     },
     del(scope, key) {
-      store.delete(scopedKey(scope, key));
+      store.delete(scopedKey("kv", scope, key));
       return Promise.resolve();
     },
     keys(scope, pattern) {
-      const prefix = scopePrefix(scope);
+      const prefix = scopePrefix("kv", scope);
       const results: string[] = [];
       for (const key of store.keys()) {
         if (key.startsWith(prefix)) {
@@ -212,7 +217,7 @@ export function createTestKvStore(): KvStore {
       return Promise.resolve(results);
     },
     list(scope, userPrefix, options) {
-      const prefix = scopePrefix(scope);
+      const prefix = scopePrefix("kv", scope);
       const fullPrefix = `${prefix}${userPrefix}`;
       const entries: { key: string; value: unknown }[] = [];
       for (const [key, value] of store) {
@@ -236,27 +241,13 @@ export function createTestVectorStore(): ServerVectorStore {
     { data: string; metadata?: Record<string, unknown> | undefined }
   >();
 
-  function scopedId(
-    scope: { keyHash: string; slug: string },
-    id: string,
-  ): string {
-    return `vec:${scope.keyHash}:${scope.slug}:${id}`;
-  }
-
-  function scopePrefix(scope: {
-    keyHash: string;
-    slug: string;
-  }): string {
-    return `vec:${scope.keyHash}:${scope.slug}:`;
-  }
-
   return {
     upsert(scope, id, data, metadata) {
-      store.set(scopedId(scope, id), { data, metadata });
+      store.set(scopedKey("vec", scope, id), { data, metadata });
       return Promise.resolve();
     },
     query(scope, text, topK = 10, _filter?) {
-      const prefix = scopePrefix(scope);
+      const prefix = scopePrefix("vec", scope);
       const query = text.toLowerCase();
       const results: {
         id: string;
@@ -286,7 +277,7 @@ export function createTestVectorStore(): ServerVectorStore {
     },
     remove(scope, ids) {
       for (const id of ids) {
-        store.delete(scopedId(scope, id));
+        store.delete(scopedKey("vec", scope, id));
       }
       return Promise.resolve();
     },

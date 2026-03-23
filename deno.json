@@ -15,7 +15,6 @@
     "@aai/sdk/runtime": "../agent/sdk/runtime.ts",
     "@aai/sdk/s2s": "../agent/sdk/s2s.ts",
     "@aai/sdk/session": "../agent/sdk/session.ts",
-    "@aai/sdk/ws-handler": "../agent/sdk/ws_handler.ts",
     "@aai/sdk/builtin-tools": "../agent/sdk/builtin_tools.ts",
     "@aai/sdk/direct-executor": "../agent/sdk/direct_executor.ts",
     "@aai/sdk/vector": "../agent/sdk/vector.ts",
@@ -53,7 +52,9 @@
     "@noble/ciphers": "npm:@noble/ciphers@^1",
     "@noble/hashes": "npm:@noble/hashes@^1",
     "ws": "npm:ws@^8",
-    "markdownlint-cli": "npm:markdownlint-cli@^0.44.0"
+    "markdownlint-cli": "npm:markdownlint-cli@^0.44.0",
+    "prom-client": "npm:prom-client@^15",
+    "@hono/prometheus": "npm:@hono/prometheus@^1"
   },
   "tasks": {
     "serve": "deno run --allow-all --unstable-worker-options main.ts",
