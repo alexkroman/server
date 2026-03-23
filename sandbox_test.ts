@@ -24,22 +24,20 @@ import {
 const SCOPE = { slug: "test-agent", keyHash: "abc" };
 
 const MINIMAL_WORKER = `
-import { CapnwebEndpoint } from "@aai/sdk/capnweb";
+import { createRpcSession, RpcTarget } from "@aai/sdk/capnweb";
 
-const endpoint = new CapnwebEndpoint(globalThis);
+class WorkerService extends RpcTarget {
+  init(_env) { return "ok"; }
+  workerFetch(url, method) {
+    return {
+      status: 200,
+      headers: { "content-type": "text/plain" },
+      body: "ok from " + method + " " + url,
+    };
+  }
+}
 
-endpoint.handle("worker.init", () => null);
-
-endpoint.handle("worker.fetch", (args) => {
-  const [url, method] = args;
-  return {
-    status: 200,
-    headers: { "content-type": "text/plain" },
-    body: "ok from " + method + " " + url,
-  };
-});
-
-endpoint.handle("worker.handleWebSocket", () => null);
+createRpcSession({ port: globalThis, localMain: new WorkerService() });
 `;
 
 function makeOpts(overrides?: Partial<SandboxOptions>): SandboxOptions {
@@ -122,35 +120,37 @@ describe("createSandbox", () => {
 // --- RPC handler tests via worker that calls host ---
 
 const KV_WORKER = `
-import { CapnwebEndpoint } from "@aai/sdk/capnweb";
+import { createRpcSession, RpcTarget } from "@aai/sdk/capnweb";
 
-const endpoint = new CapnwebEndpoint(globalThis);
+let hostStub;
 
-endpoint.handle("worker.init", () => null);
+class WorkerService extends RpcTarget {
+  init(_env) { return "ok"; }
+  async workerFetch(url) {
+    const u = new URL(url);
+    const op = u.searchParams.get("op");
 
-endpoint.handle("worker.fetch", async (args) => {
-  const [url] = args;
-  const u = new URL(url);
-  const op = u.searchParams.get("op");
+    if (op === "set") {
+      await hostStub.kvSet("mykey", { hello: "world" }, undefined);
+      return { status: 200, headers: {}, body: "set-ok" };
+    }
+    if (op === "get") {
+      const val = await hostStub.kvGet("mykey");
+      return { status: 200, headers: {}, body: JSON.stringify(val) };
+    }
+    if (op === "del") {
+      await hostStub.kvDel("mykey");
+      return { status: 200, headers: {}, body: "del-ok" };
+    }
+    if (op === "list") {
+      const entries = await hostStub.kvList("", undefined, undefined);
+      return { status: 200, headers: {}, body: JSON.stringify(entries) };
+    }
+    return { status: 404, headers: {}, body: "unknown" };
+  }
+}
 
-  if (op === "set") {
-    await endpoint.call("kv.set", ["mykey", { hello: "world" }, undefined]);
-    return { status: 200, headers: {}, body: "set-ok" };
-  }
-  if (op === "get") {
-    const val = await endpoint.call("kv.get", ["mykey"]);
-    return { status: 200, headers: {}, body: JSON.stringify(val) };
-  }
-  if (op === "del") {
-    await endpoint.call("kv.del", ["mykey"]);
-    return { status: 200, headers: {}, body: "del-ok" };
-  }
-  if (op === "list") {
-    const entries = await endpoint.call("kv.list", ["", undefined, undefined]);
-    return { status: 200, headers: {}, body: JSON.stringify(entries) };
-  }
-  return { status: 404, headers: {}, body: "unknown" };
-});
+hostStub = createRpcSession({ port: globalThis, localMain: new WorkerService() });
 `;
 
 describe("sandbox host.kv", () => {
@@ -182,47 +182,55 @@ describe("sandbox host.kv", () => {
 });
 
 const VECTOR_WORKER = `
-import { CapnwebEndpoint } from "@aai/sdk/capnweb";
+import { createRpcSession, RpcTarget } from "@aai/sdk/capnweb";
 
-const endpoint = new CapnwebEndpoint(globalThis);
+let hostStub;
 
-endpoint.handle("worker.init", () => null);
+class WorkerService extends RpcTarget {
+  init(_env) { return "ok"; }
+  async workerFetch(url) {
+    const u = new URL(url);
+    const op = u.searchParams.get("op");
 
-endpoint.handle("worker.fetch", async (args) => {
-  const [url] = args;
-  const u = new URL(url);
-  const op = u.searchParams.get("op");
-
-  if (op === "upsert") {
-    await endpoint.call("vec.upsert", ["doc1", "hello world", undefined]);
-    return { status: 200, headers: {}, body: "upsert-ok" };
-  }
-  if (op === "query") {
-    const results = await endpoint.call("vec.query", ["hello", undefined, undefined]);
-    return { status: 200, headers: {}, body: JSON.stringify(results) };
-  }
-  if (op === "remove") {
-    await endpoint.call("vec.remove", [["doc1"]]);
-    return { status: 200, headers: {}, body: "remove-ok" };
-  }
-  if (op === "no-store") {
-    try {
-      await endpoint.call("vec.query", ["x"]);
-    } catch (e) {
-      return { status: 200, headers: {}, body: e.message };
+    if (op === "upsert") {
+      await hostStub.vecUpsert("doc1", "hello world", undefined);
+      return { status: 200, headers: {}, body: "upsert-ok" };
     }
+    if (op === "query") {
+      const results = await hostStub.vecQuery("hello", undefined, undefined);
+      return { status: 200, headers: {}, body: JSON.stringify(results) };
+    }
+    if (op === "remove") {
+      await hostStub.vecRemove(["doc1"]);
+      return { status: 200, headers: {}, body: "remove-ok" };
+    }
+    if (op === "no-store") {
+      try {
+        await hostStub.vecQuery("x");
+      } catch (e) {
+        return { status: 200, headers: {}, body: e.message };
+      }
+    }
+    return { status: 404, headers: {}, body: "unknown" };
   }
-  return { status: 404, headers: {}, body: "unknown" };
-});
+}
+
+hostStub = createRpcSession({ port: globalThis, localMain: new WorkerService() });
 `;
 
 describe("sandbox host.vector", () => {
   const ctx = useSandbox();
-  const vecOpts = { workerCode: VECTOR_WORKER, vectorStore: createTestVectorStore() };
+  const vecOpts = {
+    workerCode: VECTOR_WORKER,
+    vectorStore: createTestVectorStore(),
+  };
 
   it("upsert and query round-trip", async () => {
     const sb = await ctx.create(vecOpts);
-    assertStrictEquals(await sandboxFetchText(sb, "http://x?op=upsert"), "upsert-ok");
+    assertStrictEquals(
+      await sandboxFetchText(sb, "http://x?op=upsert"),
+      "upsert-ok",
+    );
     const results = JSON.parse(await sandboxFetchText(sb, "http://x?op=query"));
     assert(Array.isArray(results));
     assert(results.length > 0);
@@ -232,13 +240,19 @@ describe("sandbox host.vector", () => {
   it("remove deletes entries", async () => {
     const sb = await ctx.create(vecOpts);
     await sandboxFetchText(sb, "http://x?op=upsert");
-    assertStrictEquals(await sandboxFetchText(sb, "http://x?op=remove"), "remove-ok");
+    assertStrictEquals(
+      await sandboxFetchText(sb, "http://x?op=remove"),
+      "remove-ok",
+    );
     const results = JSON.parse(await sandboxFetchText(sb, "http://x?op=query"));
     assertStrictEquals(results.length, 0);
   });
 
   it("throws when store not configured", async () => {
-    const sb = await ctx.create({ workerCode: VECTOR_WORKER, vectorStore: undefined });
+    const sb = await ctx.create({
+      workerCode: VECTOR_WORKER,
+      vectorStore: undefined,
+    });
     assertStrictEquals(
       await sandboxFetchText(sb, "http://x?op=no-store"),
       "Vector store not configured",
@@ -264,7 +278,10 @@ Deno.test({
     };
     const result = await ensureAgent(slot, {
       getWorkerCode: () => Promise.resolve(null),
-      kvCtx: { kvStore: createTestKvStore(), scope: { slug: "test", keyHash: "k" } },
+      kvCtx: {
+        kvStore: createTestKvStore(),
+        scope: { slug: "test", keyHash: "k" },
+      },
       getEnv: () => Promise.resolve({}),
     });
     assertStrictEquals(result, fakeSandbox);

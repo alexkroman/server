@@ -45,14 +45,23 @@ function formatLabels(
 }
 
 function formatForAgent(
-  metric: { name: string; help: string; type: string | client.MetricType; values: any[] },
+  metric: {
+    name: string;
+    help: string;
+    type: string | client.MetricType;
+    values: {
+      value: number;
+      labels: Record<string, string | number | undefined>;
+      metricName?: string;
+    }[];
+  },
   agent: string,
 ): string {
   const lines = [
     `# HELP ${metric.name} ${metric.help}`,
     `# TYPE ${metric.name} ${metric.type}`,
   ];
-  if (!metric.values.some((v: any) => "agent" in v.labels)) {
+  if (!metric.values.some((v) => "agent" in v.labels)) {
     return lines.join("\n");
   }
 

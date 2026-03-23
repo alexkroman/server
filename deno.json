@@ -52,6 +52,7 @@
     "@noble/ciphers": "npm:@noble/ciphers@^1",
     "@noble/hashes": "npm:@noble/hashes@^1",
     "ws": "npm:ws@^8",
+    "capnweb": "npm:capnweb@^0.6.1",
     "markdownlint-cli": "npm:markdownlint-cli@^0.44.0",
     "prom-client": "npm:prom-client@^15",
     "@hono/prometheus": "npm:@hono/prometheus@^1"

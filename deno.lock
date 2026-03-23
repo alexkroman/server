@@ -37,6 +37,7 @@
     "npm:@types/json-schema@^7.0.15": "7.0.15",
     "npm:@upstash/redis@^1.36.1": "1.37.0",
     "npm:@upstash/vector@1": "1.2.3",
+    "npm:capnweb@~0.6.1": "0.6.1",
     "npm:hono@4": "4.12.8",
     "npm:jose@6": "6.2.2",
     "npm:markdownlint-cli@0.44": "0.44.0",
@@ -1203,6 +1204,9 @@
         "balanced-match"
       ]
     },
+    "capnweb@0.6.1": {
+      "integrity": "sha512-fmhV26QPd1ewf5R74h55oVZnGwIcSaRMzbfLQUy8+zOBjuTmT3KXoT8wxHvnp1m9Ht9BoUUS5ZwNLoVLfQTyBg=="
+    },
     "character-entities-legacy@3.0.0": {
       "integrity": "sha512-RpPp0asT/6ufRm//AJVwpViZbGM/MkjQFxJccQRHmISF/22NBtsHqAWmL+/pmkPWoIUJdWyeVleTl1wydHATVQ=="
     },
@@ -1819,6 +1823,7 @@
       "npm:@types/json-schema@^7.0.15",
       "npm:@upstash/redis@^1.36.1",
       "npm:@upstash/vector@1",
+      "npm:capnweb@~0.6.1",
       "npm:hono@4",
       "npm:jose@6",
       "npm:markdownlint-cli@0.44",

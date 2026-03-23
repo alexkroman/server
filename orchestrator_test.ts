@@ -103,7 +103,10 @@ Deno.test("deploy can redeploy same slug", async () => {
   await deployAgent(fetch);
   const res = await fetch("/my-agent/deploy", {
     method: "POST",
-    headers: { Authorization: "Bearer key1", "Content-Type": "application/json" },
+    headers: {
+      Authorization: "Bearer key1",
+      "Content-Type": "application/json",
+    },
     body: deployBody(),
   });
   assertEquals(res.status, 200);
@@ -257,10 +260,14 @@ Deno.test("kv set and get round-trip", async () => {
     keyHash: "acct-1",
     slug: "my-agent",
   });
-  const setRes = await fetch(...kvReq("my-agent", token, { op: "set", key: "k1", value: "v1" }));
+  const setRes = await fetch(
+    ...kvReq("my-agent", token, { op: "set", key: "k1", value: "v1" }),
+  );
   assertEquals((await setRes.json()).result, "OK");
 
-  const getRes = await fetch(...kvReq("my-agent", token, { op: "get", key: "k1" }));
+  const getRes = await fetch(
+    ...kvReq("my-agent", token, { op: "get", key: "k1" }),
+  );
   assertEquals((await getRes.json()).result, "v1");
 });
 

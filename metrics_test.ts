@@ -1,9 +1,5 @@
 // Copyright 2025 the AAI authors. MIT license.
-import {
-  assert,
-  assertEquals,
-  assertStringIncludes,
-} from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import client from "prom-client";
 import {
   _internals,

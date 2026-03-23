@@ -8,7 +8,7 @@
 
 import * as log from "@std/log";
 import { encodeBase64 } from "@std/encoding/base64";
-import { bridgeWebSocketToPort, type CapnwebPort } from "@aai/sdk/capnweb";
+import { bridgeWebSocketToPort, type WorkerPort } from "@aai/sdk/capnweb";
 import {
   createHostEndpoint,
   defaultHostFetch,
@@ -105,14 +105,14 @@ export async function createSandbox(opts: SandboxOptions): Promise<Sandbox> {
   });
 
   const host: HostSandbox = await createHostEndpoint(
-    worker as unknown as CapnwebPort,
+    worker as unknown as WorkerPort,
     {
       env,
       kv: scopedKvOps(kvStore, scope),
       vector: vectorStore ? scopedVectorOps(vectorStore, scope) : undefined,
-      async fetch(req) {
-        await assertPublicUrl(req[0]);
-        return defaultHostFetch(req);
+      async fetch(url, method, headers, body) {
+        await assertPublicUrl(url);
+        return defaultHostFetch(url, method, headers, body);
       },
       createWebSocket(url, headers, port) {
         const ws = new WebSocket(url, { headers });

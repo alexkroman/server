@@ -1,7 +1,11 @@
 // Copyright 2025 the AAI authors. MIT license.
-import { assert, assertEquals, assertStrictEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertStrictEquals,
+  assertStringIncludes,
+} from "@std/assert";
 import { hashApiKey } from "./auth.ts";
-import type { AgentSlot } from "./sandbox.ts";
 import {
   createTestOrchestrator,
   deployAgent,
@@ -133,10 +137,12 @@ Deno.test("deploy terminates in-flight sandbox during redeploy", async () => {
   // Simulate a slot that has an initializing promise but no sandbox yet
   // by accessing the internal slots map via a second deploy
   let terminated = false;
-  const fakeSandbox = {
+  const _fakeSandbox = {
     startSession() {},
     fetch: () => Promise.resolve(new Response()),
-    terminate() { terminated = true; },
+    terminate() {
+      terminated = true;
+    },
   };
 
   // Get slots from the orchestrator by deploying first, then injecting state
