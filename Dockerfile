@@ -3,6 +3,10 @@ FROM denoland/deno:2.7.2 AS build
 WORKDIR /app
 COPY . .
 
+RUN deno install
+
+ENV RUST_MIN_STACK=16777216
+
 RUN deno compile \
   --allow-all \
   --unstable-worker-options \

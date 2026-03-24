@@ -93,10 +93,10 @@ export function createOrchestrator(opts: {
     if (err instanceof z.ZodError) {
       return c.json({ error: err.message }, 400);
     }
-    log.error("Unhandled error", {
-      error: err instanceof Error ? err.message : String(err),
-      path: new URL(c.req.url).pathname,
-    });
+    const errMsg = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : "";
+    const path = new URL(c.req.url).pathname;
+    log.error(`Unhandled error on ${path}: ${errMsg}\n${stack}`);
     return c.json({ error: "Internal server error" }, 500);
   });
 
