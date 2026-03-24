@@ -13,7 +13,7 @@ import {
   createHostEndpoint,
   defaultHostFetch,
   type HostSandbox,
-} from "@aai/sdk/host";
+} from "./host.ts";
 import WebSocket from "ws";
 import { assertPublicUrl } from "./_net.ts";
 import type { KvEntry } from "@aai/sdk/kv";
