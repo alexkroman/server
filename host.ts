@@ -19,14 +19,14 @@ import {
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 /** Serialized fetch response for RPC transport. */
-export type FetchResult = {
+type FetchResult = {
   status: number;
   headers: Record<string, string>;
   body: string;
 };
 
 /** Fetch function signature for host→worker RPC. */
-export type HostFetchFn = (
+type HostFetchFn = (
   url: string,
   method: string,
   headers: Record<string, string>,
@@ -34,7 +34,7 @@ export type HostFetchFn = (
 ) => Promise<FetchResult>;
 
 /** KV interface with optional key-listing support. */
-export type KvWithKeys = {
+type KvWithKeys = {
   get(key: string): Promise<unknown>;
   set(key: string, value: unknown, options?: { expireIn?: number }): Promise<void>;
   delete(key: string): Promise<void>;
@@ -46,7 +46,7 @@ export type KvWithKeys = {
 };
 
 /** Vector store interface. */
-export type VectorStore = {
+type VectorStore = {
   upsert(
     id: string,
     data: string,
@@ -60,7 +60,7 @@ export type VectorStore = {
 };
 
 /** Options for {@linkcode createHostEndpoint}. */
-export type HostEndpointOptions = {
+type HostEndpointOptions = {
   env: Record<string, string>;
   kv: KvWithKeys;
   vector?: VectorStore | undefined;
